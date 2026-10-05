@@ -1,0 +1,12 @@
+digraph G { graph [rankdir=LR, fontname="Helvetica", nodesep=0.45, ranksep=0.7, pad=0.2]; node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.15,0.08"]; edge [fontname="Helvetica", fontsize=9, color="#555555", arrowsize=0.7];
+ shot [label="shot", fillcolor="#DCE9F7", color="#2F5C8F"]
+ camera [label="camera", fillcolor="#FBEBD0", color="#9A6A13"]
+ camera_move [label="camera_move", fillcolor="#FBEBD0", color="#9A6A13"]
+ keyframe [label="keyframe", fillcolor="#FBEBD0", color="#9A6A13"]
+ timeline [label="timeline\n(row = entry)", fillcolor="#FBEBD0", color="#9A6A13"]
+ frame [label="frame", fillcolor="#DCE9F7", color="#2F5C8F"]
+ shot -> camera [label="1..*", dir=back, arrowtail=diamond, arrowhead=none]
+ camera -> camera_move [label="move_refs\n(list)"]
+ camera -> keyframe [label="keyframe_refs\n(list)"]
+ timeline -> frame [label="sequence_id, scene_id,\nshot_id, frame_number\n1..*"]
+}

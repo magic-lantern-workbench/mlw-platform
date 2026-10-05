@@ -104,6 +104,23 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 
 Every table has a `description` text column.
 
+### Schema documentation
+
+[`doc/MLW_Cassandra_Schema.docx`](doc/MLW_Cassandra_Schema.docx) describes the whole schema: a
+table of contents, association diagrams, and a table for every database table with a description of
+each column.
+
+The document is generated from `cql/*.cql`, so rebuild it after changing the schema:
+
+```bash
+doc/generator/build.sh
+```
+
+This needs Node.js, Graphviz (`dot`), LibreOffice and Python 3 with the `uno` module. Column names,
+types and keys come from the CQL files. Table and column descriptions and the diagrams live in
+`doc/generator/gen.js` and `doc/generator/diagrams/*.dot`, so add a description there for any new
+table or column (the build fails if one is missing).
+
 Note: the keyspace uses `SimpleStrategy` with replication factor 1, which is suitable for a
 single node. Change it before running a multi-node cluster.
 

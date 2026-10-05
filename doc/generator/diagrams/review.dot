@@ -1,0 +1,12 @@
+digraph G { graph [rankdir=LR, fontname="Helvetica", nodesep=0.45, ranksep=0.7, pad=0.2]; node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.15,0.08"]; edge [fontname="Helvetica", fontsize=9, color="#555555", arrowsize=0.7];
+ review [label="review", fillcolor="#F8DCDC", color="#9A3434"]
+ comment [label="comment", fillcolor="#F8DCDC", color="#9A3434"]
+ review_by_frame [label="review_by_frame\n(lookup)", fillcolor="#F8DCDC", color="#9A3434", style="rounded,filled,dashed"]
+ frame [label="frame", fillcolor="#DCE9F7", color="#2F5C8F"]
+ user [label="user", fillcolor="#EBE0F3", color="#6B3F8C"]
+ review -> frame [label="sequence_id, scene_id,\nshot_id, frame_number"]
+ review -> user [label="reviewer"]
+ review -> comment [label="comment_refs\n(list)"]
+ review_by_frame -> review [label="review_id\n(kept in sync)", style=dashed]
+ review_by_frame -> frame [label="frame key"]
+}

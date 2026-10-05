@@ -1,0 +1,9 @@
+digraph G { graph [rankdir=LR, fontname="Helvetica", nodesep=0.45, ranksep=0.7, pad=0.2]; node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin="0.15,0.08"]; edge [fontname="Helvetica", fontsize=9, color="#555555", arrowsize=0.7];
+ audio_tracks [label="audio_tracks\n(row = entry in group)", fillcolor="#E3F1DF", color="#3D7A33"]
+ track [label="track\n(shared across projects)", fillcolor="#E3F1DF", color="#3D7A33"]
+ audio_ref [label="audio_ref\n(per shot)", fillcolor="#E3F1DF", color="#3D7A33"]
+ frame [label="frame", fillcolor="#DCE9F7", color="#2F5C8F"]
+ audio_tracks -> track [label="track_id\n1..*"]
+ audio_ref -> track [label="track"]
+ frame -> audio_ref [label="audio_ref"]
+}
