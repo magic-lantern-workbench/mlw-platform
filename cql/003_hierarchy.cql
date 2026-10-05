@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS mlw.shot (
 );
 
 -- A shot is a list of frames: one row per layer of each frame, ordered by
--- frame number then layer.
+-- frame number then layer. audio_ref, dialog_ref and note_ref refer to
+-- audio_ref_id, dialog_id and note_id in cql/007_audio_dialog_note.cql.
 CREATE TABLE IF NOT EXISTS mlw.frame (
   project_id   text,
   sequence_id  text,
@@ -44,6 +45,9 @@ CREATE TABLE IF NOT EXISTS mlw.frame (
   shot_id      text,
   frame_number int,
   layer_id     text,
+  audio_ref    text,
+  dialog_ref   text,
+  note_ref     text,
   description  text,
   PRIMARY KEY ((project_id, sequence_id, scene_id, shot_id), frame_number, layer_id)
 );
