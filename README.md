@@ -91,6 +91,7 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 | `001_production.cql` | `mlw` keyspace and `production` table (one row per sequence, partitioned by `project_id`) |
 | `002_exposure_sheet.cql` | `exposure_sheet` table holding the URLs of an XML file and an SVG file per shot |
 | `003_hierarchy.cql` | `sequence` (rows are scenes), `scene` (rows are shots), `shot` (one row per shot, with `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame) tables |
+| `004_layer.cql` | `layer` table (one row per layer, partitioned by shot, with `name`, `type`, `layer_order`, `visibility`) |
 
 Every table has a `description` text column.
 
