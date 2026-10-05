@@ -1,4 +1,12 @@
-# MLW Platform
+# Magic Lantern Workbench Platform
+
+The Magic Lantern Workbench Platform is the core foundation for the workbench.
+It is comprised of
+
+* KeyCloak - Open source tool used for user role management.
+* Cassandra - Open source database used for production management and
+integration with other toolchains including 3rd-party tools.
+* File Object Store - TBD
 
 ## Cassandra Database
 
