@@ -11,16 +11,12 @@ services:
     environment:
       MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP_SIZE:-2G}
       HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:-512M}
-    # Turn on password authentication and authorization. The image has no
-    # environment variables for these, so edit cassandra.yaml before starting.
-    command:
-      - bash
-      - -c
-      - |
-        set -e
-        sed -i -E 's/^authenticator:.*/authenticator: PasswordAuthenticator/; s/^authorizer:.*/authorizer: CassandraAuthorizer/' /etc/cassandra/cassandra.yaml
-        grep -qx 'authenticator: PasswordAuthenticator' /etc/cassandra/cassandra.yaml
-        exec docker-entrypoint.sh cassandra -f
+      CASSANDRA_ENABLE_AUTH: "true"
+    # The image has no environment variables for authentication, so this script
+    # edits cassandra.yaml before starting Cassandra.
+    command: ["bash", "/usr/local/bin/mlw-cassandra-configure.sh"]
+    volumes:
+      - ./docker/cassandra/configure.sh:/usr/local/bin/mlw-cassandra-configure.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "nodetool statusbinary | grep -q running"]
       interval: 30s

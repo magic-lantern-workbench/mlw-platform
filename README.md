@@ -112,9 +112,10 @@ Every table has a `description` text column.
 [`doc/MLW_Cassandra_Schema.docx`](doc/MLW_Cassandra_Schema.docx) describes the whole schema: a
 table of contents, association diagrams, and a table for every database table with a description of
 each column. [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx) describes the REST API, with a section
-for every table.
+for every table, and [`doc/openapi.yaml`](doc/openapi.yaml) is the same API as an OpenAPI 3.0 specification
+(for Swagger UI, Postman or code generators).
 
-Both documents are generated from `cql/*.cql`, so rebuild them after changing the schema:
+The documents and the specification are generated from `cql/*.cql`, so rebuild them after changing the schema:
 
 ```bash
 doc/generator/build.sh
@@ -136,7 +137,7 @@ editing the same data. It runs in its own Docker image (`app/Dockerfile`, build 
 root) and is the `app` service in the compose files.
 
 - **Web UI:** <http://localhost:8090/>
-- **REST API:** <http://localhost:8090/api/v1> (see [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx))
+- **REST API:** <http://localhost:8090/api/v1> (see [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx) and [`doc/openapi.yaml`](doc/openapi.yaml))
 
 ```bash
 docker compose up -d --build     # builds the image, starts Cassandra and the app
@@ -158,7 +159,8 @@ The main ones:
 | `CASSANDRA_KEYSPACE` | `mlw` | Keyspace. |
 | `CASSANDRA_USERNAME`, `CASSANDRA_PASSWORD` | none | Credentials, both or neither. |
 | `CASSANDRA_LOCAL_DC` | none | Preferred datacenter, for multi-datacenter clusters. |
-| `CASSANDRA_TLS`, `CASSANDRA_TLS_CA_FILE` | `false` | Connect with TLS. |
+| `CASSANDRA_TLS`, `CASSANDRA_TLS_CA_FILE` | `false` | Connect to Cassandra with TLS (see "HTTPS and TLS"). |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE` | none | Serve HTTPS with this certificate and key. |
 | `API_TOKEN` | none | Bearer token required by the REST API (required in production). |
 | `APPLY_SCHEMA` | `true` locally, otherwise `false` | Create the schema at startup (safe to repeat). |
 
@@ -188,8 +190,45 @@ docker compose -f docker-compose.yml up -d --build app
   replication in `cql/001_production.cql` first), or set `APPLY_SCHEMA=true` once.
 - If the cluster advertises addresses you cannot reach (SSH tunnel, NAT, port forwarding), also set
   `CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP=true` and `CASSANDRA_IGNORE_PEER_ADDR=true`.
-- Without `API_TOKEN` the API is open. Set one and put HTTPS in front of the app when it is reachable
+- Without `API_TOKEN` the API is open. Set one and use HTTPS (see "HTTPS and TLS") when the app is reachable
   over a network.
+
+### HTTPS and TLS
+
+Two connections can be encrypted, separately or together:
+
+- **HTTPS to the app:** the app serves HTTPS when `TLS_CERT_FILE` and `TLS_KEY_FILE` are set (PEM files).
+  It accepts TLS 1.2 and later (`TLS_MIN_VERSION=1.3` for 1.3 only), and picks up a renewed certificate
+  within seconds without a restart.
+- **TLS to Cassandra:** `CASSANDRA_TLS=true` makes the app connect with TLS and verify the server
+  certificate against `CASSANDRA_TLS_CA_FILE`. Use `CASSANDRA_TLS_SERVER_NAME` when the name in the
+  certificate differs from the address connected to, and `CASSANDRA_TLS_CERT_FILE` / `CASSANDRA_TLS_KEY_FILE`
+  for a cluster that requires a client certificate.
+
+For local development and testing, `docker-compose.tls.yml` turns on both, including TLS on the Cassandra
+container (port 9042 then accepts only encrypted connections):
+
+```bash
+scripts/gen-certs.sh                        # private CA and certificates in ./certs (not committed)
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.tls.yml up -d --build
+curl --cacert certs/ca.pem https://localhost:8090/api/v1/health
+```
+
+Add `-f docker-compose.prod.yml` instead of the override file for the production setup, which then has
+authentication, TLS and an API token together. To reach Cassandra with TLS from the host or the container,
+use the CA: `SSL_CERTFILE=certs/ca.pem SSL_VALIDATE=true cqlsh --ssl localhost`.
+
+Notes:
+
+- `gen-certs.sh` makes **development** certificates: a throw-away CA, and keys readable by every user so the
+  containers can read them. Pass extra host names or IP addresses as arguments to include them in the
+  certificates. For production, use certificates from your own CA or a public CA and restrict the key
+  permissions, or terminate HTTPS in a reverse proxy in front of the app (then leave `TLS_CERT_FILE` unset).
+- For a remote Cassandra with TLS, start only the app: `docker compose -f docker-compose.yml -f
+  docker-compose.tls.yml up -d app`, mount the CA that signed the cluster certificate, and set
+  `CASSANDRA_TLS_CA_FILE` and `CASSANDRA_TLS_SERVER_NAME` in `.env`. `CASSANDRA_TLS_SKIP_VERIFY=true` exists for
+  testing only and logs a warning.
+- Without HTTPS the app logs a warning when `API_TOKEN` is set, because the token travels in clear text.
 
 ### Development
 
@@ -250,6 +289,8 @@ ALTER ROLE cassandra WITH PASSWORD = 'a-long-random-string' AND SUPERUSER = fals
 | `docker compose up -d` (dev) | none | `127.0.0.1:9042` | `127.0.0.1:8090`, schema applied, token optional | no |
 | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | `${APP_BIND}:8090`, token required | unless-stopped |
 | `docker compose -f docker-compose.yml up -d app` | remote, per `.env` | none (no local Cassandra) | `${APP_BIND}:8090` | no |
+
+Add `-f docker-compose.tls.yml` to any of these for HTTPS and encrypted Cassandra connections (see "HTTPS and TLS").
 
 ### Notes
 

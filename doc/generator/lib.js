@@ -76,6 +76,41 @@ function cell(text, width, opts = {}) {
 }
 
 
+// ---------- example data generated from the schema ----------
+const SAMPLE = {
+  project_id: 'demo', sequence_id: 'SQ010', scene_id: 'SC010', shot_id: 'SH010', layer_id: 'L1',
+  user_id: 'u1', email: 'ann@example.org', username: 'ann', display_name: 'Ann Artist', role: 'artist',
+  name: 'Example', status: 'active', type: 'example', title: 'Opening', description: 'Example description.',
+  frame_rate: 24, frame_number: 1, start_frame: 1, end_frame: 48, position: 10, z_order: 1, visibility: true,
+  created_at: '2026-10-05T12:00:00Z', added_at: '2026-10-05T12:00:00Z', revision_number: 1, author: 'u1', reviewer: 'u1',
+  x: 0, y: 0, z: 10, zoom: 1, focal_length: 35, interpolation: 'linear', note: 'Hold for two frames.',
+  url: 'https://example.org/audio/theme.wav', file_name: 'theme.wav', source_url: 'https://example.org/assets/bg.png',
+  xml_url: 'https://example.org/xsheet/SH010.xml', svg_url: 'https://example.org/xsheet/SH010.svg',
+  note_text: 'Check the lighting.', comment_text: 'Please brighten the sky.', phoneme: 'AH', owner_id: 'u1',
+  category: 'background', version: '1.0.0', owner: 'u1',
+};
+function sample(col, typ) {
+  if (SAMPLE[col] !== undefined) return SAMPLE[col];
+  if (/^(list|set)</.test(typ)) return [col.replace(/s$/, '').replace(/_refs?$/, '') + '-1'];
+  if (typ === 'text') return col.endsWith('_id') || col.endsWith('_ref') ? col.replace(/_(id|ref)$/, '').toUpperCase() + '1' : 'example';
+  if (typ === 'int') return 1;
+  if (typ === 'float') return 1.5;
+  if (typ === 'boolean') return true;
+  if (typ === 'timestamp') return '2026-10-05T12:00:00Z';
+  return 'example';
+}
+const typeOf = (t, name) => t.cols.find(c => c.name === name).type;
+const keyOf = t => [...t.partition, ...t.clustering];
+const colsOrdered = t => [
+  ...keyOf(t).map(n => t.cols.find(c => c.name === n)),
+  ...t.cols.filter(c => !keyOf(t).includes(c.name)),
+];
+function exampleBody(t) {
+  const o = {};
+  for (const c of colsOrdered(t)) o[c.name] = sample(c.name, c.type);
+  return o;
+}
+
 // Builds the document with the shared styles, a page number footer and the children.
 function buildDocument(title, footerText, children) {
   return new Document({
@@ -104,4 +139,4 @@ function write(doc, out) {
   return Packer.toBuffer(doc).then(buf => { fs.writeFileSync(out, buf); console.log('wrote', out, buf.length); });
 }
 
-module.exports = { d, REPO, parseCql, FONT, BLUE, p, rich, h, border, borders, cell, buildDocument, write };
+module.exports = { d, REPO, parseCql, FONT, BLUE, p, rich, h, border, borders, cell, buildDocument, write, sample, typeOf, keyOf, colsOrdered, exampleBody };

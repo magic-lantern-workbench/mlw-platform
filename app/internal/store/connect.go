@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -34,7 +35,13 @@ func newCluster(cfg config.Config, keyspace string) (*gocql.ClusterConfig, error
 		cl.Authenticator = gocql.PasswordAuthenticator{Username: cfg.Username, Password: cfg.Password}
 	}
 	if cfg.TLS {
-		cl.SslOpts = &gocql.SslOptions{CaPath: cfg.TLSCAFile, EnableHostVerification: !cfg.TLSSkipVerify}
+		cl.SslOpts = &gocql.SslOptions{
+			Config:                 &tls.Config{MinVersion: tls.VersionTLS12, ServerName: cfg.TLSServerName},
+			CaPath:                 cfg.TLSCAFile,
+			CertPath:               cfg.TLSCertFile,
+			KeyPath:                cfg.TLSKeyFile,
+			EnableHostVerification: !cfg.TLSSkipVerify,
+		}
 	}
 	if cfg.LocalDC != "" {
 		cl.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.DCAwareRoundRobinPolicy(cfg.LocalDC))

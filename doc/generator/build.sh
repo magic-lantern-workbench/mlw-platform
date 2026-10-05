@@ -2,6 +2,7 @@
 # Rebuilds the Word documents in doc/ from the CQL files in cql/:
 #   MLW_Cassandra_Schema.docx  the database schema
 #   MLW_REST_API.docx          the REST API
+#   openapi.yaml               the REST API as an OpenAPI 3.0 specification
 #
 # Requires: node + npm, graphviz (dot), LibreOffice (soffice) and python3 with
 # the uno module (used only to fill in the tables of contents).
@@ -22,10 +23,11 @@ done
 # 2. documents (tables parsed from cql/*.cql, descriptions from gen.js)
 node "$here/gen.js" "$build/schema.docx" "$build/png"
 node "$here/gen_api.js" "$build/api.docx"
+node "$here/gen_openapi.js" "$docs/openapi.yaml"
 
 # 3. fill in the tables of contents and page numbers
 python3 "$here/update_toc.py" "$build/schema.docx" "$docs/MLW_Cassandra_Schema.docx" "$build"
 python3 "$here/update_toc.py" "$build/api.docx" "$docs/MLW_REST_API.docx" "$build"
 
 rm -rf "$build"
-echo "wrote $docs/MLW_Cassandra_Schema.docx and $docs/MLW_REST_API.docx"
+echo "wrote $docs/MLW_Cassandra_Schema.docx, $docs/MLW_REST_API.docx and $docs/openapi.yaml"

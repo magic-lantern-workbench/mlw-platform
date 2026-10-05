@@ -2,6 +2,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,6 +15,11 @@ type Config struct {
 	Addr     string // HTTP listen address
 	APIToken string // bearer token required by the REST API; empty disables auth
 
+	// HTTPS: when both files are set the server speaks TLS instead of plain HTTP.
+	ServerCertFile string
+	ServerKeyFile  string
+	MinTLSVersion  uint16
+
 	Hosts       []string
 	Port        int
 	Keyspace    string
@@ -25,6 +31,12 @@ type Config struct {
 	TLS           bool
 	TLSCAFile     string
 	TLSSkipVerify bool
+	// TLSCertFile and TLSKeyFile are a client certificate, for clusters that
+	// require one (mutual TLS). TLSServerName overrides the name the server
+	// certificate is checked against, for example when connecting by IP address.
+	TLSCertFile   string
+	TLSKeyFile    string
+	TLSServerName string
 
 	// DisableInitialHostLookup and IgnorePeerAddr make the driver use only the
 	// configured hosts. They are needed when the cluster advertises addresses
@@ -35,6 +47,9 @@ type Config struct {
 	ApplySchema bool          // run the embedded cql files at startup
 	StartupWait time.Duration // how long to keep retrying the first connection
 }
+
+// HTTPS reports whether the server should speak TLS.
+func (c Config) HTTPS() bool { return c.ServerCertFile != "" }
 
 // Load reads the configuration from the environment.
 func Load() (Config, error) {
@@ -48,7 +63,13 @@ func Load() (Config, error) {
 		LocalDC:     os.Getenv("CASSANDRA_LOCAL_DC"),
 		Consistency: strings.ToUpper(env("CASSANDRA_CONSISTENCY", "LOCAL_QUORUM")),
 		TLSCAFile:   os.Getenv("CASSANDRA_TLS_CA_FILE"),
-		StartupWait: 2 * time.Minute,
+		TLSCertFile: os.Getenv("CASSANDRA_TLS_CERT_FILE"),
+		TLSKeyFile:  os.Getenv("CASSANDRA_TLS_KEY_FILE"),
+
+		TLSServerName:  os.Getenv("CASSANDRA_TLS_SERVER_NAME"),
+		ServerCertFile: os.Getenv("TLS_CERT_FILE"),
+		ServerKeyFile:  os.Getenv("TLS_KEY_FILE"),
+		StartupWait:    2 * time.Minute,
 	}
 	for _, h := range strings.Split(env("CASSANDRA_HOSTS", "localhost"), ",") {
 		if h = strings.TrimSpace(h); h != "" {
@@ -78,6 +99,20 @@ func Load() (Config, error) {
 		if c.StartupWait, err = time.ParseDuration(v); err != nil {
 			return c, fmt.Errorf("CASSANDRA_STARTUP_WAIT: %w", err)
 		}
+	}
+	switch v := env("TLS_MIN_VERSION", "1.2"); v {
+	case "1.2":
+		c.MinTLSVersion = tls.VersionTLS12
+	case "1.3":
+		c.MinTLSVersion = tls.VersionTLS13
+	default:
+		return c, fmt.Errorf("TLS_MIN_VERSION must be 1.2 or 1.3, got %q", v)
+	}
+	if (c.ServerCertFile == "") != (c.ServerKeyFile == "") {
+		return c, fmt.Errorf("TLS_CERT_FILE and TLS_KEY_FILE must be set together")
+	}
+	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
+		return c, fmt.Errorf("CASSANDRA_TLS_CERT_FILE and CASSANDRA_TLS_KEY_FILE must be set together")
 	}
 	if len(c.Hosts) == 0 {
 		return c, fmt.Errorf("CASSANDRA_HOSTS is empty")

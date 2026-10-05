@@ -2,6 +2,7 @@
 // The per-table sections are generated from cql/*.cql, so they follow the schema.
 const {
   d, parseCql, FONT, BLUE, p, h, border, borders, cell, buildDocument, write,
+  sample, typeOf, keyOf, exampleBody,
 } = require('./lib');
 const {
   HeadingLevel, Table, TableRow, WidthType, TableOfContents, Paragraph, TextRun,
@@ -58,40 +59,6 @@ function grid(widths, head, rows, o = {}) {
   add(new Paragraph({ spacing: { after: 160 }, children: [] }));
 }
 
-// ---------- example data generated from the schema ----------
-const SAMPLE = {
-  project_id: 'demo', sequence_id: 'SQ010', scene_id: 'SC010', shot_id: 'SH010', layer_id: 'L1',
-  user_id: 'u1', email: 'ann@example.org', username: 'ann', display_name: 'Ann Artist', role: 'artist',
-  name: 'Example', status: 'active', type: 'example', title: 'Opening', description: 'Example description.',
-  frame_rate: 24, frame_number: 1, start_frame: 1, end_frame: 48, position: 10, z_order: 1, visibility: true,
-  created_at: '2026-10-05T12:00:00Z', added_at: '2026-10-05T12:00:00Z', revision_number: 1, author: 'u1', reviewer: 'u1',
-  x: 0, y: 0, z: 10, zoom: 1, focal_length: 35, interpolation: 'linear', note: 'Hold for two frames.',
-  url: 'https://example.org/audio/theme.wav', file_name: 'theme.wav', source_url: 'https://example.org/assets/bg.png',
-  xml_url: 'https://example.org/xsheet/SH010.xml', svg_url: 'https://example.org/xsheet/SH010.svg',
-  note_text: 'Check the lighting.', comment_text: 'Please brighten the sky.', phoneme: 'AH', owner_id: 'u1',
-  category: 'background', version: '1.0.0', owner: 'u1',
-};
-function sample(col, typ) {
-  if (SAMPLE[col] !== undefined) return SAMPLE[col];
-  if (/^(list|set)</.test(typ)) return [col.replace(/s$/, '').replace(/_refs?$/, '') + '-1'];
-  if (typ === 'text') return col.endsWith('_id') || col.endsWith('_ref') ? col.replace(/_(id|ref)$/, '').toUpperCase() + '1' : 'example';
-  if (typ === 'int') return 1;
-  if (typ === 'float') return 1.5;
-  if (typ === 'boolean') return true;
-  if (typ === 'timestamp') return '2026-10-05T12:00:00Z';
-  return 'example';
-}
-const typeOf = (t, name) => t.cols.find(c => c.name === name).type;
-const keyOf = t => [...t.partition, ...t.clustering];
-const colsOrdered = t => [
-  ...keyOf(t).map(n => t.cols.find(c => c.name === n)),
-  ...t.cols.filter(c => !keyOf(t).includes(c.name)),
-];
-function exampleBody(t) {
-  const o = {};
-  for (const c of colsOrdered(t)) o[c.name] = sample(c.name, c.type);
-  return o;
-}
 const keyVals = (t, n) => keyOf(t).slice(0, n).map(k => encodeURIComponent(String(sample(k, typeOf(t, k)))));
 const pathFor = (t, n) => '/api/v1/' + t.name + keyVals(t, n).map(v => '/' + v).join('');
 const tmpl = (t, n) => '/api/v1/' + t.name + keyOf(t).slice(0, n).map(k => '/{' + k + '}').join('');
@@ -114,11 +81,13 @@ bullet([b('Create'), ' a row with POST.']);
 bullet([b('Read'), ' one row, or a list of rows, with GET.']);
 bullet([b('Update'), ' a row with PUT (replace) or PATCH (change some columns).']);
 bullet([b('Delete'), ' a row with DELETE.']);
+para('The API is also described as an OpenAPI 3.0 specification in the file openapi.yaml, which can be loaded into Swagger UI, Postman or a code generator.');
 para('Tables and columns are not created or dropped through the API. The schema is defined by the CQL files in the cql directory.');
 
 H2('1.2 Base URL');
 para(`All endpoints are under /api/v1. With the Docker Compose files the application listens on port 8090 of the host by default (APP_PORT), bound to 127.0.0.1 (APP_BIND). The examples in this document use ${BASE}.`);
 para('The web user interface is served from the root path (/) of the same server.');
+para('The application can serve HTTPS itself: set TLS_CERT_FILE and TLS_KEY_FILE (section 5) and use https:// in the URLs. The docker-compose.tls.yml file does this for local development, with certificates made by scripts/gen-certs.sh. Alternatively put a reverse proxy that terminates HTTPS in front of the application. The examples in this document use plain HTTP; with HTTPS add --cacert <ca.pem> to curl when the certificate comes from a private CA.');
 
 H2('1.3 Request and response format');
 bullet('Requests with a body and all responses use JSON encoded as UTF-8. Send the header Content-Type: application/json with a body.');
@@ -136,7 +105,7 @@ para('Cassandra stores the rows of one partition together, in clustering key ord
 H2('1.5 Authentication');
 para('If the application is started with the environment variable API_TOKEN, every request under /api/v1 (except the health check) must send the token as a bearer token:');
 code(`curl -H 'Authorization: Bearer <token>' ${BASE}/api/v1/tables`);
-para('A missing or wrong token gives 401 Unauthorized. If API_TOKEN is not set the API is open, and the application logs a warning at startup. The production Compose file requires a token. Use HTTPS in front of the application when the API is reachable over a network, because the token is sent in every request.');
+para('A missing or wrong token gives 401 Unauthorized. If API_TOKEN is not set the API is open, and the application logs a warning at startup. The production Compose file requires a token. The token is sent in every request, so use HTTPS whenever the API is reachable over a network (section 1.2).');
 
 H2('1.6 Errors');
 para('Errors use an HTTP status code and a JSON body with a machine-readable code and a message:');
@@ -394,9 +363,13 @@ grid([3300, 1800, 4260], ['Variable', 'Default', 'Description'], [
   ['CASSANDRA_USERNAME, CASSANDRA_PASSWORD', '(none)', 'Credentials. Both or neither.'],
   ['CASSANDRA_LOCAL_DC', '(none)', 'Preferred datacenter. Set it for multi-datacenter clusters.'],
   ['CASSANDRA_CONSISTENCY', 'LOCAL_QUORUM', 'Consistency level of reads and writes.'],
-  ['CASSANDRA_TLS', 'false', 'Connect with TLS.'],
-  ['CASSANDRA_TLS_CA_FILE', '(none)', 'Path of a CA certificate file inside the container.'],
-  ['CASSANDRA_TLS_SKIP_VERIFY', 'false', 'Do not verify the server certificate (testing only).'],
+  ['TLS_CERT_FILE, TLS_KEY_FILE', '(none)', 'PEM certificate (with any intermediate certificates) and private key. When set, the application serves HTTPS instead of HTTP. A renewed certificate is picked up within seconds without a restart.'],
+  ['TLS_MIN_VERSION', '1.2', 'Lowest TLS version accepted for HTTPS: 1.2 or 1.3.'],
+  ['CASSANDRA_TLS', 'false', 'Connect to Cassandra with TLS and verify its certificate.'],
+  ['CASSANDRA_TLS_CA_FILE', '(none)', 'Path of the CA certificate file that signed the Cassandra certificate, inside the container. Without it the system CAs are used.'],
+  ['CASSANDRA_TLS_SERVER_NAME', '(none)', 'Name to check the Cassandra certificate against. Needed when the cluster advertises addresses that are not in its certificate.'],
+  ['CASSANDRA_TLS_CERT_FILE, CASSANDRA_TLS_KEY_FILE', '(none)', 'Client certificate and key, for a cluster that requires mutual TLS.'],
+  ['CASSANDRA_TLS_SKIP_VERIFY', 'false', 'Do not verify the Cassandra certificate (testing only; logged as a warning).'],
   ['CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP, CASSANDRA_IGNORE_PEER_ADDR', 'false', 'Use only the configured hosts. Needed when the cluster advertises addresses that cannot be reached, for example behind an SSH tunnel or NAT.'],
   ['APPLY_SCHEMA', 'false (true in local development)', 'Run the embedded cql files at startup. They only use IF NOT EXISTS, so this is safe to repeat. Check the keyspace replication in cql/001_production.cql before using it on a real cluster.'],
   ['CASSANDRA_STARTUP_WAIT', '2m', 'How long to keep retrying the first connection, so the application can start before Cassandra.'],

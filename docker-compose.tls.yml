@@ -1,0 +1,40 @@
+# TLS overlay: HTTPS for the application and encrypted client connections to the
+# local Cassandra. Create the certificates first:  scripts/gen-certs.sh
+#
+# Local development:
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.tls.yml up -d
+# Production:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tls.yml up -d
+#
+# With a remote Cassandra, start only the app and point CASSANDRA_TLS_CA_FILE at
+# the CA that signed the server certificate (mount it into the container):
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d app
+services:
+  cassandra:
+    command: ["bash", "/usr/local/bin/mlw-cassandra-configure.sh"]
+    environment:
+      CASSANDRA_ENABLE_CLIENT_TLS: "true"
+      CASSANDRA_KEYSTORE: /certs/cassandra.p12
+      CASSANDRA_KEYSTORE_PASSWORD: ${CASSANDRA_KEYSTORE_PASSWORD:-changeit}
+    volumes:
+      - ./docker/cassandra/configure.sh:/usr/local/bin/mlw-cassandra-configure.sh:ro
+      - ./certs:/certs:ro
+    healthcheck:
+      # cqlsh would need TLS options; nodetool does not use the client port
+      test: ["CMD-SHELL", "nodetool statusbinary | grep -q running"]
+
+  app:
+    environment:
+      TLS_CERT_FILE: /certs/app.pem
+      TLS_KEY_FILE: /certs/app.key
+      TLS_MIN_VERSION: ${TLS_MIN_VERSION:-1.2}
+      CASSANDRA_TLS: ${CASSANDRA_TLS:-true}
+      CASSANDRA_TLS_CA_FILE: ${CASSANDRA_TLS_CA_FILE:-/certs/ca.pem}
+      # Cassandra advertises its container IP, so the certificate name is set
+      # explicitly. For a remote cluster set this to the name in its certificate
+      # (or to nothing to check the address that is connected to).
+      CASSANDRA_TLS_SERVER_NAME: ${CASSANDRA_TLS_SERVER_NAME-cassandra}
+      CASSANDRA_TLS_CERT_FILE: ${CASSANDRA_TLS_CERT_FILE:-}
+      CASSANDRA_TLS_KEY_FILE: ${CASSANDRA_TLS_KEY_FILE:-}
+    volumes:
+      - ./certs:/certs:ro

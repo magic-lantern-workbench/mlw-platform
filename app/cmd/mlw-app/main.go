@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/api"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/config"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/store"
+	"github.com/magic-lantern-workbench/mlw-platform/app/internal/tlsutil"
 	"github.com/magic-lantern-workbench/mlw-platform/app/web"
 )
 
@@ -30,7 +32,7 @@ func main() {
 		os.Exit(2)
 	}
 	if *healthcheck {
-		os.Exit(check(cfg.Addr))
+		os.Exit(check(cfg))
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -48,6 +50,9 @@ func main() {
 	if cfg.APIToken == "" {
 		log.Warn("API_TOKEN is not set: the REST API is unauthenticated")
 	}
+	if cfg.TLS && cfg.TLSSkipVerify {
+		log.Warn("CASSANDRA_TLS_SKIP_VERIFY is set: the Cassandra server certificate is not verified")
+	}
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -57,30 +62,52 @@ func main() {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
+	if cfg.HTTPS() {
+		certs, err := tlsutil.NewReloader(cfg.ServerCertFile, cfg.ServerKeyFile, log)
+		if err != nil {
+			log.Error("cannot start", "error", err)
+			os.Exit(1)
+		}
+		srv.TLSConfig = &tls.Config{MinVersion: cfg.MinTLSVersion, GetCertificate: certs.GetCertificate}
+	} else if cfg.APIToken != "" {
+		log.Warn("serving plain HTTP: the API token is sent unencrypted; set TLS_CERT_FILE and TLS_KEY_FILE, or put an HTTPS proxy in front")
+	}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		srv.Shutdown(shutdown)
 	}()
-	log.Info("listening", "addr", cfg.Addr, "tables", len(st.Tables()))
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	log.Info("listening", "addr", cfg.Addr, "https", cfg.HTTPS(), "tables", len(st.Tables()))
+	var serveErr error
+	if cfg.HTTPS() {
+		serveErr = srv.ListenAndServeTLS("", "") // certificates come from TLSConfig
+	} else {
+		serveErr = srv.ListenAndServe()
+	}
+	if err := serveErr; !errors.Is(err, http.ErrServerClosed) {
 		log.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
 // check asks the local server whether it is healthy; it returns the exit code.
-func check(addr string) int {
-	host, port, err := net.SplitHostPort(addr)
+// It talks to the loopback address, so the certificate name is not checked.
+func check(cfg config.Config) int {
+	host, port, err := net.SplitHostPort(cfg.Addr)
 	if err != nil {
 		return 1
 	}
 	if host == "" {
 		host = "127.0.0.1"
 	}
+	scheme := "http"
 	c := http.Client{Timeout: 4 * time.Second}
-	resp, err := c.Get("http://" + net.JoinHostPort(host, port) + "/api/v1/health")
+	if cfg.HTTPS() {
+		scheme = "https"
+		c.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
+	resp, err := c.Get(scheme + "://" + net.JoinHostPort(host, port) + "/api/v1/health")
 	if err != nil {
 		return 1
 	}
