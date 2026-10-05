@@ -100,6 +100,7 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 | `010_review.cql` | `review` table (one row per review of a frame, with `reviewer`, `status` and `comment_refs`), `comment` table (`comment_text`) and `review_by_frame` lookup table |
 | `011_audio_track.cql` | `track` table (`name`, `type`, `file_name`, `url`, `description`) and `audio_tracks` table (an ordered group of tracks), both shared across projects |
 | `012_camera.cql` | `camera_move`, `keyframe` and `camera` tables, partitioned by shot; `camera` has `name`, `projection` and lists of move and keyframe references |
+| `013_version_control.cql` | `version_control` table and `revision` table (one row per revision, newest first, with `author`, `created_at` in UTC and `description`) |
 
 Every table has a `description` text column.
 
