@@ -19,7 +19,8 @@ The platform uses Apache Cassandra, run locally with Docker Compose (`docker-com
 ### Start
 
 ```bash
-docker compose up -d
+docker compose up -d              # Cassandra and the application (see "Application" below)
+docker compose up -d cassandra    # Cassandra only
 ```
 
 Cassandra takes about 30-60 seconds to become ready on first start. Check status with:
@@ -84,7 +85,9 @@ docker compose exec -T cassandra cqlsh < cql/001_production.cql
 for f in cql/*.cql; do docker compose exec -T cassandra cqlsh < "$f"; done
 ```
 
-On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh`.
+On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh`. In local development the
+`app` service applies these files itself when it starts (see "Application" below), so this is only needed for
+Cassandra on its own.
 
 | File | Contents |
 | ---- | -------- |
@@ -108,9 +111,10 @@ Every table has a `description` text column.
 
 [`doc/MLW_Cassandra_Schema.docx`](doc/MLW_Cassandra_Schema.docx) describes the whole schema: a
 table of contents, association diagrams, and a table for every database table with a description of
-each column.
+each column. [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx) describes the REST API, with a section
+for every table.
 
-The document is generated from `cql/*.cql`, so rebuild it after changing the schema:
+Both documents are generated from `cql/*.cql`, so rebuild them after changing the schema:
 
 ```bash
 doc/generator/build.sh
@@ -124,6 +128,81 @@ table or column (the build fails if one is missing).
 Note: the keyspace uses `SimpleStrategy` with replication factor 1, which is suitable for a
 single node. Change it before running a multi-node cluster.
 
+## Application (REST API and web UI)
+
+`app/` holds a Go application with an embedded Vue web UI. It serves a REST API that creates, reads,
+updates and deletes the rows of every table in the Cassandra keyspace, and a web page for browsing and
+editing the same data. It runs in its own Docker image (`app/Dockerfile`, build context is the repository
+root) and is the `app` service in the compose files.
+
+- **Web UI:** <http://localhost:8090/>
+- **REST API:** <http://localhost:8090/api/v1> (see [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx))
+
+```bash
+docker compose up -d --build     # builds the image, starts Cassandra and the app
+curl localhost:8090/api/v1/tables
+```
+
+For local development the app waits for Cassandra and creates the schema (`cql/*.cql`, embedded in the
+image) on first start. The port is `APP_PORT` (default 8090, bound to `127.0.0.1`).
+
+### Configuration
+
+The app is configured with environment variables, passed through from `.env` (see `.env.example`).
+The main ones:
+
+| Variable | Default | Meaning |
+| -------- | ------- | ------- |
+| `CASSANDRA_HOSTS` | `cassandra` | Comma separated contact points. |
+| `CASSANDRA_PORT` | `9042` | CQL port. |
+| `CASSANDRA_KEYSPACE` | `mlw` | Keyspace. |
+| `CASSANDRA_USERNAME`, `CASSANDRA_PASSWORD` | none | Credentials, both or neither. |
+| `CASSANDRA_LOCAL_DC` | none | Preferred datacenter, for multi-datacenter clusters. |
+| `CASSANDRA_TLS`, `CASSANDRA_TLS_CA_FILE` | `false` | Connect with TLS. |
+| `API_TOKEN` | none | Bearer token required by the REST API (required in production). |
+| `APPLY_SCHEMA` | `true` locally, otherwise `false` | Create the schema at startup (safe to repeat). |
+
+All variables are listed in section 5 of the REST API document.
+
+### Using a remote Cassandra
+
+The app can use any Cassandra, not only the compose service. Set the connection in `.env` and start only the
+`app` service, from the base compose file so that no local Cassandra is started and the local-development
+defaults are not applied:
+
+```bash
+# .env
+CASSANDRA_HOSTS=cassandra.example.com
+CASSANDRA_USERNAME=mlw
+CASSANDRA_PASSWORD=...
+CASSANDRA_LOCAL_DC=dc1
+CASSANDRA_TLS=true
+API_TOKEN=a-long-random-token
+```
+
+```bash
+docker compose -f docker-compose.yml up -d --build app
+```
+
+- The schema is not applied automatically. Create it on the remote cluster yourself (check the keyspace
+  replication in `cql/001_production.cql` first), or set `APPLY_SCHEMA=true` once.
+- If the cluster advertises addresses you cannot reach (SSH tunnel, NAT, port forwarding), also set
+  `CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP=true` and `CASSANDRA_IGNORE_PEER_ADDR=true`.
+- Without `API_TOKEN` the API is open. Set one and put HTTPS in front of the app when it is reachable
+  over a network.
+
+### Development
+
+```bash
+cd app
+make test                                   # unit tests (needs Go 1.25)
+CASSANDRA_TEST_HOSTS=localhost go test ./...   # also runs the tests against a real Cassandra
+make build                                  # copies cql/, builds the web UI and the binary into bin/
+cd web && npm run dev                       # UI with hot reload, proxying /api to localhost:8080
+```
+
+The integration tests write rows under the project id `itest` and remove them again.
+
 ## Remote server deployment
 
 The same compose setup runs on a remote server using the production override
@@ -136,6 +215,12 @@ git clone <repo-url> && cd mlw-platform
 cp .env.example .env            # edit values as needed
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+`API_TOKEN` must be set in `.env` (the production file refuses to start without it). The `app` service also
+starts, restarts on boot, and connects to Cassandra as `CASSANDRA_USERNAME` / `CASSANDRA_PASSWORD`
+(default `cassandra` / `cassandra` until you change them as described below, then update `.env`). Set
+`APPLY_SCHEMA=true` for the first start to create the schema. The app is published on
+`${APP_BIND:-127.0.0.1}:${APP_PORT:-8090}`.
 
 **First-time security setup:** a fresh node accepts `cassandra` / `cassandra`.
 Create your own superuser and remove the default immediately:
@@ -160,10 +245,11 @@ ALTER ROLE cassandra WITH PASSWORD = 'a-long-random-string' AND SUPERUSER = fals
 
 ## Local vs. remote at a glance
 
-| Command | Auth | Port binding | Restart policy |
-| ------- | ---- | ------------ | -------------- |
-| `docker compose up -d` (dev) | none | `127.0.0.1:9042` | no |
-| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | unless-stopped |
+| Command | Cassandra auth | Cassandra port | App | Restart policy |
+| ------- | -------------- | -------------- | --- | -------------- |
+| `docker compose up -d` (dev) | none | `127.0.0.1:9042` | `127.0.0.1:8090`, schema applied, token optional | no |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | `${APP_BIND}:8090`, token required | unless-stopped |
+| `docker compose -f docker-compose.yml up -d app` | remote, per `.env` | none (no local Cassandra) | `${APP_BIND}:8090` | no |
 
 ### Notes
 

@@ -1,0 +1,7 @@
+# built web UI and the copy of ../cql made by the Dockerfile / `make schema`
+web/dist/*
+!web/dist/.gitkeep
+web/node_modules/
+internal/schema/cql/*
+!internal/schema/cql/.gitkeep
+/bin/

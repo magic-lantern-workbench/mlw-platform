@@ -11,13 +11,31 @@ services:
     environment:
       MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP_SIZE:-2G}
       HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:-512M}
-      # Cassandra 4.1+ reads cassandra.yaml overrides from JVM properties.
-      JVM_EXTRA_OPTS: >-
-        -Dcassandra.authenticator=PasswordAuthenticator
-        -Dcassandra.authorizer=CassandraAuthorizer
+    # Turn on password authentication and authorization. The image has no
+    # environment variables for these, so edit cassandra.yaml before starting.
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        sed -i -E 's/^authenticator:.*/authenticator: PasswordAuthenticator/; s/^authorizer:.*/authorizer: CassandraAuthorizer/' /etc/cassandra/cassandra.yaml
+        grep -qx 'authenticator: PasswordAuthenticator' /etc/cassandra/cassandra.yaml
+        exec docker-entrypoint.sh cassandra -f
     healthcheck:
       test: ["CMD-SHELL", "nodetool statusbinary | grep -q running"]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 90s
+
+  app:
+    restart: unless-stopped
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      # anyone who can reach the port can change data, so a token is required
+      API_TOKEN: ${API_TOKEN:?set API_TOKEN in .env}
+      # the cassandra service above has authentication on; see the README for the first-time login
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME:-cassandra}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD:-cassandra}

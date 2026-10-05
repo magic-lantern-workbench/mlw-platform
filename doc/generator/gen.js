@@ -1,63 +1,17 @@
 const fs = require('fs');
 const path = require('path');
-const d = require('docx');
 const {
-  Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType,
-  ShadingType, TableOfContents, ImageRun, Footer, PageNumber, AlignmentType, BorderStyle,
-  PageBreak, TableLayoutType,
+  d, REPO, parseCql, FONT, BLUE, p, rich, h, border, borders, cell, buildDocument, write,
+} = require('./lib');
+const {
+  HeadingLevel, Table, TableRow, WidthType, TableOfContents, ImageRun, Paragraph, TextRun,
+  AlignmentType, PageBreak, TableLayoutType,
 } = d;
 
 // Usage: node gen.js <output.docx> <diagram-png-dir>
-const REPO = path.resolve(__dirname, '..', '..');
 const OUT = process.argv[2];
 const DIA = process.argv[3];
 if (!OUT || !DIA) { console.error('usage: node gen.js <output.docx> <diagram-png-dir>'); process.exit(1); }
-
-// ---------- parse the CQL files ----------
-function parseCql() {
-  const tables = {};
-  const dir = path.join(REPO, 'cql');
-  for (const f of fs.readdirSync(dir).sort()) {
-    const src = fs.readFileSync(path.join(dir, f), 'utf8').replace(/--[^\n]*/g, '');
-    const re = /CREATE TABLE IF NOT EXISTS mlw\.(\w+)\s*\(([\s\S]*?)\n\)\s*(WITH[^;]*)?;/g;
-    let m;
-    while ((m = re.exec(src))) {
-      const [, name, body, opts] = m;
-      const cols = [];
-      let pk = null;
-      // split on top-level commas (list<text> has none, PRIMARY KEY has parens)
-      let depth = 0, cur = '', parts = [];
-      for (const ch of body) {
-        if (ch === '(') depth++;
-        if (ch === ')') depth--;
-        if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
-      }
-      parts.push(cur);
-      for (let p of parts) {
-        p = p.trim().replace(/\s+/g, ' ');
-        if (!p) continue;
-        if (/^PRIMARY KEY/i.test(p)) { pk = p.replace(/^PRIMARY KEY\s*/i, ''); continue; }
-        const mm = p.match(/^(\w+) (.+?)( static)?$/);
-        cols.push({ name: mm[1], type: mm[2], isStatic: !!mm[3] });
-      }
-      // primary key: ((a, b), c, d) or (a, b) or (a)
-      const inner = pk.replace(/^\(|\)$/g, '');
-      let partition, clustering;
-      const pm = inner.match(/^\(([^)]*)\)\s*,?\s*(.*)$/);
-      if (pm) {
-        partition = pm[1].split(',').map(s => s.trim());
-        clustering = pm[2] ? pm[2].split(',').map(s => s.trim()) : [];
-      } else {
-        const all = inner.split(',').map(s => s.trim());
-        partition = [all[0]];
-        clustering = all.slice(1);
-      }
-      const order = /CLUSTERING ORDER BY \((\w+) DESC\)/i.exec(opts || '');
-      tables[name] = { name, cols, partition, clustering, file: f, descOrder: order ? order[1] : null };
-    }
-  }
-  return tables;
-}
 
 // ---------- descriptions ----------
 const GEN = {
@@ -306,25 +260,6 @@ const GROUPS = [
     ['version_control', 'revision']],
 ];
 
-// ---------- document helpers ----------
-const FONT = 'Calibri';
-const BLUE = '2F5C8F';
-const p = (text, opts = {}) => new Paragraph({ spacing: { after: 120 }, ...opts, children: [new TextRun({ text, ...(opts.run || {}) })] });
-const rich = (parts, opts = {}) => new Paragraph({ spacing: { after: 120 }, ...opts, children: parts.map(x => typeof x === 'string' ? new TextRun(x) : new TextRun(x)) });
-const h = (text, level) => new Paragraph({ heading: level, children: [new TextRun(text)] });
-const border = { style: BorderStyle.SINGLE, size: 4, color: 'B7B7B7' };
-const borders = { top: border, bottom: border, left: border, right: border };
-
-function cell(text, width, opts = {}) {
-  return new TableCell({
-    width: { size: width, type: WidthType.DXA },
-    borders,
-    margins: { top: 50, bottom: 50, left: 90, right: 90 },
-    shading: opts.fill ? { type: ShadingType.CLEAR, fill: opts.fill, color: 'auto' } : undefined,
-    children: [new Paragraph({ keepNext: !!opts.keepNext, children: [new TextRun({ text, bold: !!opts.bold, color: opts.color, font: opts.mono ? 'Consolas' : undefined, size: opts.mono ? 18 : 20 })] })],
-  });
-}
-
 const W = [1900, 1250, 1250, 4960]; // sums to 9360
 function columnsTable(t) {
   const keyOf = c => {
@@ -459,25 +394,5 @@ for (const [title, intro, list] of GROUPS) {
   }
 }
 
-const doc = new Document({
-  creator: 'Magic Lantern Workbench',
-  title: 'Cassandra Database Schema',
-  features: { updateFields: true },
-  styles: {
-    default: { document: { run: { font: FONT, size: 22 } } },
-    paragraphStyles: [
-      { id: 'Title', name: 'Title', basedOn: 'Normal', run: { size: 56, bold: true, color: BLUE, font: FONT }, paragraph: { spacing: { after: 160 } } },
-      { id: 'Heading1', name: 'heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 34, bold: true, color: BLUE, font: FONT }, paragraph: { spacing: { before: 360, after: 160 }, outlineLevel: 0 } },
-      { id: 'Heading2', name: 'heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 28, bold: true, color: BLUE, font: FONT }, paragraph: { spacing: { before: 280, after: 120 }, outlineLevel: 1 } },
-      { id: 'Heading3', name: 'heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 24, bold: true, color: '333333', font: FONT }, paragraph: { spacing: { before: 240, after: 100 }, outlineLevel: 2 } },
-    ],
-  },
-  numbering: { config: [] },
-  sections: [{
-    properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLW Cassandra Schema  ·  Page ', size: 18, color: '777777' }), new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '777777' })] })] }) },
-    children,
-  }],
-});
-
-Packer.toBuffer(doc).then(buf => { fs.writeFileSync(OUT, buf); console.log('wrote', OUT, buf.length); });
+const doc = buildDocument('Cassandra Database Schema', 'MLW Cassandra Schema', children);
+write(doc, OUT);

@@ -15,5 +15,33 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
 
+  # REST API and web UI for the database. It uses the cassandra service above by
+  # default (the overrides make it wait for that service). To use a remote
+  # Cassandra instead, set CASSANDRA_HOSTS and the credentials in .env and run
+  # only this service, from the base file alone so nothing local is started:
+  #   docker compose -f docker-compose.yml up -d app
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    image: mlw-app:latest
+    container_name: mlw-app
+    environment:
+      CASSANDRA_HOSTS: ${CASSANDRA_HOSTS:-cassandra}
+      CASSANDRA_PORT: ${CASSANDRA_PORT:-9042}
+      CASSANDRA_KEYSPACE: ${CASSANDRA_KEYSPACE:-mlw}
+      CASSANDRA_USERNAME: ${CASSANDRA_USERNAME:-}
+      CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD:-}
+      CASSANDRA_LOCAL_DC: ${CASSANDRA_LOCAL_DC:-}
+      CASSANDRA_CONSISTENCY: ${CASSANDRA_CONSISTENCY:-LOCAL_QUORUM}
+      CASSANDRA_TLS: ${CASSANDRA_TLS:-false}
+      CASSANDRA_TLS_SKIP_VERIFY: ${CASSANDRA_TLS_SKIP_VERIFY:-false}
+      CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP: ${CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP:-false}
+      CASSANDRA_IGNORE_PEER_ADDR: ${CASSANDRA_IGNORE_PEER_ADDR:-false}
+      APPLY_SCHEMA: ${APPLY_SCHEMA:-false}
+      API_TOKEN: ${API_TOKEN:-}
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8090}:8080"
+
 volumes:
   cassandra_data:
