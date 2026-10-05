@@ -96,6 +96,7 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 | `006_user.cql` | `user` table (`username`, `email`, `display_name`, `role`, `created_at`, `description`) and `user_by_email` lookup table |
 | `007_audio_dialog_note.cql` | `audio_ref` (`track`, `start_frame`, `end_frame`), `dialog` (`phoneme`) and `note` (`note_text`) tables, partitioned by shot and referenced from `frame` |
 | `008_timeline.cql` | `timeline` table (one row per entry, ordered by `position`, each pointing at a frame) |
+| `009_project.cql` | `project` table (`name`, `status`, `owner_id`, `created_at`, `description`) and `project_member` table (one row per member, with `role` and `added_at`) and `project_by_user` lookup table |
 
 Every table has a `description` text column.
 
