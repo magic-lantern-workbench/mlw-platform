@@ -98,6 +98,8 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 | `008_timeline.cql` | `timeline` table (one row per entry, ordered by `position`, each pointing at a frame) |
 | `009_project.cql` | `project` table (`name`, `status`, `owner_id`, `created_at`, `description`) and `project_member` table (one row per member, with `role` and `added_at`) and `project_by_user` lookup table |
 | `010_review.cql` | `review` table (one row per review of a frame, with `reviewer`, `status` and `comment_refs`), `comment` table (`comment_text`) and `review_by_frame` lookup table |
+| `011_audio_track.cql` | `track` table (`name`, `type`, `file_name`, `url`, `description`) and `audio_tracks` table (an ordered group of tracks), both shared across projects |
+| `012_camera.cql` | `camera_move`, `keyframe` and `camera` tables, partitioned by shot; `camera` has `name`, `projection` and lists of move and keyframe references |
 
 Every table has a `description` text column.
 

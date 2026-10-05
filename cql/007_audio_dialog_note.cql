@@ -1,6 +1,6 @@
 -- Audio, dialog and notes attached to frames (mlw.frame.audio_ref,
 -- dialog_ref and note_ref refer to the ids below). One row per item,
--- partitioned by shot like mlw.layer.
+-- partitioned by shot like mlw.layer. audio_ref.track is a track_id from mlw.track.
 
 CREATE TABLE IF NOT EXISTS mlw.audio_ref (
   project_id   text,
