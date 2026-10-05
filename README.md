@@ -80,8 +80,11 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 
 | File | Contents |
 | ---- | -------- |
-| `001_production.cql` | `mlw` keyspace and `production` table (one row per shot, partitioned by `project_id`) |
-| `002_exposure_sheet.cql` | `exposure_sheet` table holding an XML file and an SVG file (as text) per shot |
+| `001_production.cql` | `mlw` keyspace and `production` table (one row per sequence, partitioned by `project_id`) |
+| `002_exposure_sheet.cql` | `exposure_sheet` table holding the URLs of an XML file and an SVG file per shot |
+| `003_hierarchy.cql` | `sequence` (rows are scenes), `scene` (rows are shots), `shot` (one row per shot, with `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame) tables |
+
+Every table has a `description` text column.
 
 Note: the keyspace uses `SimpleStrategy` with replication factor 1, which is suitable for a
 single node. Change it before running a multi-node cluster.
