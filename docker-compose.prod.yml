@@ -1,0 +1,23 @@
+# Remote server overrides. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Auth is enabled: log in as cassandra/cassandra on first start, then change the password (see README).
+services:
+  cassandra:
+    restart: unless-stopped
+    ports:
+      # Bind to a specific interface (default: localhost only). Set CASSANDRA_BIND
+      # to the server's private IP to allow other hosts, and firewall port 9042.
+      - "${CASSANDRA_BIND:-127.0.0.1}:9042:9042"
+    environment:
+      MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP_SIZE:-2G}
+      HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:-512M}
+      # Cassandra 4.1+ reads cassandra.yaml overrides from JVM properties.
+      JVM_EXTRA_OPTS: >-
+        -Dcassandra.authenticator=PasswordAuthenticator
+        -Dcassandra.authorizer=CassandraAuthorizer
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool statusbinary | grep -q running"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s

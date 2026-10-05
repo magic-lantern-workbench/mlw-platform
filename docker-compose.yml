@@ -1,0 +1,19 @@
+# Base configuration shared by all environments.
+# Local dev:  docker compose up -d                (adds docker-compose.override.yml automatically)
+# Remote:     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  cassandra:
+    image: cassandra:5.0
+    container_name: mlw-cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: ${CASSANDRA_CLUSTER_NAME:-mlw-cluster}
+      CASSANDRA_DC: dc1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP_SIZE:-512M}
+      HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:-128M}
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+volumes:
+  cassandra_data:

@@ -1,0 +1,133 @@
+# MLW Platform
+
+## Cassandra Database
+
+The platform uses Apache Cassandra, run locally with Docker Compose (`docker-compose.yml`).
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) with the Compose plugin (`docker compose`)
+
+### Start
+
+```bash
+docker compose up -d
+```
+
+Cassandra takes about 30-60 seconds to become ready on first start. Check status with:
+
+```bash
+docker compose ps          # STATUS should show "healthy"
+docker compose logs -f cassandra
+```
+
+### Connect
+
+**With cqlsh inside the container:**
+
+```bash
+docker compose exec cassandra cqlsh
+```
+
+**From the host** (application drivers or a local `cqlsh`):
+
+| Setting        | Value         |
+| -------------- | ------------- |
+| Host           | `localhost`   |
+| Port           | `9042`        |
+| Datacenter     | `dc1`         |
+| Cluster name   | `mlw-cluster` |
+| Authentication | none          |
+
+```bash
+cqlsh localhost 9042
+```
+
+### Quick test
+
+```sql
+CREATE KEYSPACE IF NOT EXISTS mlw
+  WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+
+USE mlw;
+DESCRIBE KEYSPACES;
+```
+
+### Stop
+
+```bash
+docker compose stop        # stop, keep data
+docker compose down        # remove container, keep data
+docker compose down -v     # remove container AND delete all data
+```
+
+Data is stored in the named Docker volume `cassandra_data` and survives restarts.
+
+## Schema
+
+CQL schema files live in `cql/` and are numbered in the order they should be applied
+(e.g. `001_production.cql`). They are idempotent (`IF NOT EXISTS`), so re-running is safe.
+
+Apply a single file, or all of them, to the running container:
+
+```bash
+docker compose exec -T cassandra cqlsh < cql/001_production.cql
+
+for f in cql/*.cql; do docker compose exec -T cassandra cqlsh < "$f"; done
+```
+
+On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh`.
+
+| File | Contents |
+| ---- | -------- |
+| `001_production.cql` | `mlw` keyspace and `production` table (one row per shot, partitioned by `project_id`) |
+
+Note: the keyspace uses `SimpleStrategy` with replication factor 1, which is suitable for a
+single node. Change it before running a multi-node cluster.
+
+## Remote server deployment
+
+The same compose setup runs on a remote server using the production override
+(`docker-compose.prod.yml`), which enables password authentication, restarts
+on boot, and uses a larger heap.
+
+```bash
+# On the server (requires Docker + Compose)
+git clone <repo-url> && cd mlw-platform
+cp .env.example .env            # edit values as needed
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+**First-time security setup:** a fresh node accepts `cassandra` / `cassandra`.
+Create your own superuser and remove the default immediately:
+
+```bash
+docker compose exec cassandra cqlsh -u cassandra -p cassandra
+```
+```sql
+CREATE ROLE admin WITH SUPERUSER = true AND LOGIN = true AND PASSWORD = 'a-strong-password';
+-- reconnect as admin, then:
+ALTER ROLE cassandra WITH PASSWORD = 'a-long-random-string' AND SUPERUSER = false;
+```
+
+**Network access:**
+
+- By default the port is bound to `127.0.0.1` on the server, so use an SSH tunnel
+  from your machine: `ssh -L 9042:localhost:9042 user@server`, then
+  `cqlsh -u admin localhost 9042`.
+- To let other hosts connect directly, set `CASSANDRA_BIND` in `.env` to the server's
+  private IP and restrict port 9042 with a firewall. Avoid exposing it to the public
+  internet; Cassandra traffic here is not encrypted (no TLS configured).
+
+## Local vs. remote at a glance
+
+| Command | Auth | Port binding | Restart policy |
+| ------- | ---- | ------------ | -------------- |
+| `docker compose up -d` (dev) | none | `127.0.0.1:9042` | no |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | unless-stopped |
+
+### Notes
+
+- The default (dev) setup is single-node with no authentication and is bound to localhost only.
+- Settings can be tuned via `.env` (see `.env.example`); `.env` is git-ignored.
+- The JVM heap is limited to 512M. Adjust `CASSANDRA_MAX_HEAP_SIZE` and `CASSANDRA_HEAP_NEWSIZE` in `.env` for larger workloads.
