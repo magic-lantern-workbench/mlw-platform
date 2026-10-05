@@ -81,6 +81,7 @@ On a remote server using authentication, add `-u <user> -p <password>` to `cqlsh
 | File | Contents |
 | ---- | -------- |
 | `001_production.cql` | `mlw` keyspace and `production` table (one row per shot, partitioned by `project_id`) |
+| `002_exposure_sheet.cql` | `exposure_sheet` table holding an XML file and an SVG file (as text) per shot |
 
 Note: the keyspace uses `SimpleStrategy` with replication factor 1, which is suitable for a
 single node. Change it before running a multi-node cluster.
