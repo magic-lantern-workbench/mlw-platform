@@ -39,7 +39,7 @@ security:
   - {}
 tags:
   - name: Service
-    description: Health and table metadata.
+    description: Health, table metadata and this specification.
   - name: Production Hierarchy
     description: Sequences, scenes, shots, frames and layers.
   - name: Assets, Audio and Notes
@@ -89,6 +89,21 @@ paths:
                     example: unavailable
                   error:
                     type: string
+  /openapi.yaml:
+    get:
+      tags:
+        - Service
+      operationId: getOpenApiSpec
+      summary: Get this OpenAPI specification
+      security: []
+      description: Returns this document, with the server set to the application that serves it. The web user interface shows it as interactive documentation (Swagger UI). Needs no token.
+      responses:
+        "200":
+          description: The OpenAPI document.
+          content:
+            application/yaml:
+              schema:
+                type: string
   /tables:
     get:
       tags:

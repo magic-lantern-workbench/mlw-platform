@@ -22,6 +22,8 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 .side { background: var(--panel); border-right: 1px solid var(--line); padding: 14px; overflow-y: auto; max-height: 100vh; position: sticky; top: 0; }
 .side h1 { font-size: 16px; margin: 0 0 4px; }
 .side .ks { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+.side button.nav { width: 100%; text-align: left; margin-bottom: 10px; }
+.side button.nav.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .side ul { list-style: none; margin: 10px 0 0; padding: 0; }
 .side li button { width: 100%; text-align: left; border: 0; background: transparent; padding: 5px 8px; border-radius: 5px; }
 .side li button.on { background: var(--accent); color: var(--accent-text); }

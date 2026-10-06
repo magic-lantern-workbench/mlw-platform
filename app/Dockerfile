@@ -18,6 +18,8 @@ COPY app/ ./
 COPY --from=web /web/dist ./web/dist
 # go:embed cannot reach outside the module, so the schema is copied in
 COPY cql/ ./internal/schema/cql/
+# the OpenAPI specification is served at /api/v1/openapi.yaml
+COPY doc/openapi.yaml ./internal/api/spec/openapi.yaml
 RUN CGO_ENABLED=0 go test ./... && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mlw-app ./cmd/mlw-app
 

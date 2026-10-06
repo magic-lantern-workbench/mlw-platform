@@ -5,3 +5,6 @@ web/node_modules/
 internal/schema/cql/*
 !internal/schema/cql/.gitkeep
 /bin/
+# copy of ../doc/openapi.yaml made by the Dockerfile / `make schema`
+internal/api/spec/*
+!internal/api/spec/.gitkeep

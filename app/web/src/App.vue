@@ -1,7 +1,9 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { api, ApiError, getToken, setToken } from './api.js'
 import RowForm from './RowForm.vue'
+
+const SwaggerView = defineAsyncComponent(() => import('./SwaggerView.vue'))
 
 const keyspace = ref('')
 const tables = ref([])
@@ -18,6 +20,7 @@ const error = ref('')
 const needToken = ref(false)
 const tokenInput = ref(getToken())
 const form = ref(null) // { row } while the form is open
+const view = ref(location.hash === '#api-docs' ? 'api' : 'tables') // 'tables' or 'api'
 
 const visible = computed(() => tables.value.filter((t) => t.name.includes(filter.value.trim())))
 const keyCols = computed(() => (current.value ? [...current.value.partitionKey, ...current.value.clusteringKey] : []))
@@ -42,7 +45,7 @@ async function loadTables() {
     error.value = ''
     const wanted = decodeURIComponent(location.hash.slice(1))
     const t = r.tables.find((x) => x.name === wanted)
-    if (t && !current.value) select(t)
+    if (t && !current.value && view.value === 'tables') select(t)
   } catch (e) { fail(e) }
 }
 
@@ -51,7 +54,13 @@ function saveToken() {
   loadTables()
 }
 
+function showApi() {
+  view.value = 'api'
+  try { history.replaceState(null, '', '#api-docs') } catch { /* ignore */ }
+}
+
 function select(t) {
+  view.value = 'tables'
   current.value = t
   keyInputs.value = keyCols.value.map(() => '')
   rows.value = []
@@ -146,10 +155,11 @@ onMounted(loadTables)
     <aside class="side">
       <h1>MLW Database</h1>
       <div class="ks">keyspace <code>{{ keyspace || '…' }}</code></div>
+      <button class="nav" :class="{ on: view === 'api' }" @click="showApi">API documentation</button>
       <input v-model="filter" placeholder="Filter tables" />
       <ul>
         <li v-for="t in visible" :key="t.name">
-          <button :class="{ on: current && current.name === t.name }" @click="select(t)">
+          <button :class="{ on: view === 'tables' && current && current.name === t.name }" @click="select(t)">
             {{ t.name }}<span v-if="t.readOnly" class="badge">read-only</span>
           </button>
         </li>
@@ -163,7 +173,8 @@ onMounted(loadTables)
         <button class="primary" type="submit">Use token</button>
       </form>
 
-      <div v-if="!current" class="empty">Choose a table.</div>
+      <SwaggerView v-if="view === 'api'" />
+      <div v-else-if="!current" class="empty">Choose a table.</div>
       <template v-else>
         <h2>{{ current.name }}</h2>
         <div class="path">

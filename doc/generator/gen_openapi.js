@@ -241,7 +241,7 @@ const spec = {
   }],
   security: [{ bearerAuth: [] }, {}],
   tags: [
-    { name: 'Service', description: 'Health and table metadata.' },
+    { name: 'Service', description: 'Health, table metadata and this specification.' },
     ...GROUPS.map(([name, description]) => ({ name, description })),
   ],
   paths: {},
@@ -299,6 +299,13 @@ Object.assign(spec.paths, {
         200: { description: 'The service is healthy.', content: json({ type: 'object', required: ['status'], properties: { status: { type: 'string', example: 'ok' }, keyspace: { type: 'string', example: 'mlw' } } }) },
         503: { description: 'The database cannot be reached.', content: json({ type: 'object', properties: { status: { type: 'string', example: 'unavailable' }, error: { type: 'string' } } }) },
       },
+    },
+  },
+  '/openapi.yaml': {
+    get: {
+      tags: ['Service'], operationId: 'getOpenApiSpec', summary: 'Get this OpenAPI specification', security: [],
+      description: 'Returns this document, with the server set to the application that serves it. The web user interface shows it as interactive documentation (Swagger UI). Needs no token.',
+      responses: { 200: { description: 'The OpenAPI document.', content: { 'application/yaml': { schema: { type: 'string' } } } } },
     },
   },
   '/tables': {

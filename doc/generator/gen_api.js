@@ -81,7 +81,7 @@ bullet([b('Create'), ' a row with POST.']);
 bullet([b('Read'), ' one row, or a list of rows, with GET.']);
 bullet([b('Update'), ' a row with PUT (replace) or PATCH (change some columns).']);
 bullet([b('Delete'), ' a row with DELETE.']);
-para('The API is also described as an OpenAPI 3.0 specification in the file openapi.yaml, which can be loaded into Swagger UI, Postman or a code generator.');
+para('The API is also described as an OpenAPI 3.0 specification (section 2.2). The web user interface shows it as interactive documentation, and the file openapi.yaml can be loaded into Postman or a code generator.');
 para('Tables and columns are not created or dropped through the API. The schema is defined by the CQL files in the cql directory.');
 
 H2('1.2 Base URL');
@@ -138,6 +138,7 @@ add(new Paragraph({ children: [new PageBreak()] }));
 H1('2. Endpoints');
 grid([1150, 4300, 2200, 1710], ['Method', 'Path', 'Purpose', 'Success'], [
   ['GET', '/api/v1/health', 'Check the service and database', '200'],
+  ['GET', '/api/v1/openapi.yaml', 'The OpenAPI specification', '200'],
   ['GET', '/api/v1/tables', 'List the tables', '200'],
   ['GET', '/api/v1/tables/{table}', 'Describe one table', '200'],
   ['GET', '/api/v1/{table}', 'Scan a table', '200'],
@@ -154,7 +155,11 @@ code('curl ' + BASE + '/api/v1/health', 'Request');
 code('{ "keyspace": "mlw", "status": "ok" }', 'Response 200');
 para('If the database cannot be reached the response is 503 with {"status": "unavailable", "error": "..."}.');
 
-H2('2.2 List tables');
+H2('2.2 OpenAPI specification');
+para('GET /api/v1/openapi.yaml returns the OpenAPI 3.0 specification of this API as YAML. It describes the same endpoints as this document. The server in the served copy is /api/v1, the server it comes from, so tools such as Swagger UI and Postman send their requests to the application itself. It needs no token. The file doc/openapi.yaml in the repository is the same document with a configurable server URL.');
+para('The web user interface has an API documentation page that shows it with Swagger UI. “Try it out” on that page sends requests to the application and uses the API token entered in the web user interface.');
+
+H2('2.3 List tables');
 para('GET /api/v1/tables returns every table with its columns and key. Clients such as the web user interface use it to build forms.');
 code('curl ' + BASE + '/api/v1/tables', 'Request');
 code(`{
@@ -189,17 +194,17 @@ grid([1900, 7460], ['Field', 'Description'], [
   ['path', 'Path template of a single row.'],
 ], { mono: [0] });
 
-H2('2.3 Describe a table');
+H2('2.4 Describe a table');
 para('GET /api/v1/tables/{table} returns the entry of one table, in the same form as above. An unknown table gives 404.');
 
-H2('2.4 List rows');
+H2('2.5 List rows');
 para('GET /api/v1/{table}/{keys...} returns the rows whose key starts with the given values.');
 grid([2600, 6760], ['Key values in the path', 'Result'], [
   ['None', 'A scan of the whole table, one page at a time, in the order Cassandra stores it (not sorted). Avoid scans of large tables.'],
   ['Fewer than the partition key', '400 bad_request. Cassandra needs the whole partition key.'],
   ['The whole partition key', 'All rows of the partition, in clustering key order.'],
   ['The partition key and some clustering key values', 'The rows of the partition whose clustering key starts with those values.'],
-  ['The whole key', 'One row, as an object (section 2.5).'],
+  ['The whole key', 'One row, as an object (section 2.6).'],
 ], {});
 grid([1700, 1100, 6560], ['Query parameter', 'Default', 'Description'], [
   ['limit', '100', 'Page size, 1 to 1000.'],
@@ -226,7 +231,7 @@ code(`{
 }`, 'Response 200');
 code(`curl '${BASE}/api/v1/production/demo?limit=2&pageState=AAcABVNRMDIw8H____7wf____g'`, 'Next page');
 
-H2('2.5 Get a row');
+H2('2.6 Get a row');
 para('GET /api/v1/{table}/{keys...} with all the key values returns the row as an object. If there is no such row the response is 404.');
 code(`curl ${BASE}/api/v1/project/demo`, 'Request');
 code(`{
@@ -238,7 +243,7 @@ code(`{
   "description": null
 }`, 'Response 200');
 
-H2('2.6 Create a row');
+H2('2.7 Create a row');
 para('POST /api/v1/{table} creates a row from a JSON object. The body must contain every key column. Other columns are optional, and a column left out is null. A body that contains a column that does not exist is rejected.');
 para('If a row with the same key already exists the response is 409 and nothing is changed. The response has the status 201, a Location header with the path of the new row, and the stored row as the body.');
 code(`curl -X POST ${BASE}/api/v1/layer \\
@@ -267,7 +272,7 @@ para('Some tables have static columns, which are stored once for a whole partiti
 code(`curl -X POST ${BASE}/api/v1/timeline \\
   -d '{"project_id":"demo","timeline_id":"T1","name":"First cut","description":"Rough cut"}'`);
 
-H2('2.7 Replace a row');
+H2('2.8 Replace a row');
 para('PUT /api/v1/{table}/{keys...} replaces the row with the given key. The columns in the body are set, and the other columns of the row, except the key and static columns, are set to null. If the row does not exist the response is 404: PUT does not create rows.');
 para('The key columns may be left out of the body. If they are given they must match the path, otherwise the response is 400.');
 code(`curl -X PUT ${BASE}/api/v1/project/demo -d '{"name":"Demo 2"}'`, 'Request');
@@ -280,7 +285,7 @@ code(`{
   "description": null
 }`, 'Response 200');
 
-H2('2.8 Change columns of a row');
+H2('2.9 Change columns of a row');
 para('PATCH /api/v1/{table}/{keys...} changes only the columns in the body and leaves the others as they are. Send null to clear a column. Lists (for example comment_refs) are replaced as a whole. An empty body gives 400, and a missing row gives 404.');
 code(`curl -X PATCH ${BASE}/api/v1/project/demo -d '{"status":"archived"}'`, 'Request');
 code(`{
@@ -295,7 +300,7 @@ H3('Static columns');
 para('A PUT or PATCH whose path has only the partition key (for example /api/v1/timeline/demo/T1) can change static columns of that partition. Any other column in the body gives 400.');
 code(`curl -X PATCH ${BASE}/api/v1/timeline/demo/T1 -d '{"description":"Final cut"}'`);
 
-H2('2.9 Delete a row');
+H2('2.10 Delete a row');
 para('DELETE /api/v1/{table}/{keys...} with all the key values deletes the row. The response is 204 with no body, or 404 if the row does not exist. Deleting a whole partition, or rows with a key prefix, is not supported. Rows that refer to the deleted row are not changed.');
 code(`curl -X DELETE ${BASE}/api/v1/project/demo`, 'Request');
 code('HTTP/1.1 204 No Content', 'Response');

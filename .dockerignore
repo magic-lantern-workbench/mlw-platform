@@ -1,7 +1,9 @@
 .git
 .env
-doc
+doc/*
+!doc/openapi.yaml
 **/node_modules
 app/web/dist
 app/internal/schema/cql
+app/internal/api/spec
 app/bin

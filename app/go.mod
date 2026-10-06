@@ -2,7 +2,10 @@ module github.com/magic-lantern-workbench/mlw-platform/app
 
 go 1.25
 
-require github.com/gocql/gocql v1.7.0
+require (
+	github.com/gocql/gocql v1.7.0
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	github.com/golang/snappy v0.0.3 // indirect

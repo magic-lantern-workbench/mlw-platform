@@ -136,8 +136,9 @@ updates and deletes the rows of every table in the Cassandra keyspace, and a web
 editing the same data. It runs in its own Docker image (`app/Dockerfile`, build context is the repository
 root) and is the `app` service in the compose files.
 
-- **Web UI:** <http://localhost:8090/>
+- **Web UI:** <http://localhost:8090/> (the *API documentation* entry in the sidebar is an interactive Swagger UI page)
 - **REST API:** <http://localhost:8090/api/v1> (see [`doc/MLW_REST_API.docx`](doc/MLW_REST_API.docx) and [`doc/openapi.yaml`](doc/openapi.yaml))
+- **OpenAPI specification:** <http://localhost:8090/api/v1/openapi.yaml> (served by the app, no token needed)
 
 ```bash
 docker compose up -d --build     # builds the image, starts Cassandra and the app
@@ -236,7 +237,7 @@ Notes:
 cd app
 make test                                   # unit tests (needs Go 1.25)
 CASSANDRA_TEST_HOSTS=localhost go test ./...   # also runs the tests against a real Cassandra
-make build                                  # copies cql/, builds the web UI and the binary into bin/
+make build                                  # copies cql/ and doc/openapi.yaml, builds the web UI and the binary into bin/
 cd web && npm run dev                       # UI with hot reload, proxying /api to localhost:8080
 ```
 

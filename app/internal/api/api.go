@@ -34,17 +34,23 @@ type Server struct {
 	token  string
 	static fs.FS
 	log    *slog.Logger
+	spec   []byte // OpenAPI document served at /api/v1/openapi.yaml, nil if not built in
 }
 
 // New creates a Server. An empty token disables authentication.
 func New(st *store.Store, token string, static fs.FS, log *slog.Logger) *Server {
-	return &Server{st: st, token: token, static: static, log: log}
+	spec, err := loadSpec()
+	if err != nil {
+		log.Error("the embedded OpenAPI specification is not usable", "error", err)
+	}
+	return &Server{st: st, token: token, static: static, log: log, spec: spec}
 }
 
 // Handler returns the HTTP handler.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.health)
+	mux.HandleFunc("GET /api/v1/openapi.yaml", s.openapi)
 	mux.Handle("GET /api/v1/tables", s.auth(s.listTables))
 	mux.Handle("GET /api/v1/tables/{table}", s.auth(s.getTable))
 	mux.Handle("GET /api/v1/{table}", s.auth(s.read))
