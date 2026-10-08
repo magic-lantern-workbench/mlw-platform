@@ -92,20 +92,63 @@ Cassandra on its own.
 | File | Contents |
 | ---- | -------- |
 | `001_production.cql` | `mlw` keyspace and `production` table (one row per episode, partitioned by `project_id`) |
-| `002_exposure_sheet.cql` | `exposure_sheet` table holding the URLs of an XML file and an SVG file per shot |
-| `003_hierarchy.cql` | `episode` (rows are sequences, with static `episode_url`), `sequence` (rows are scenes, with static `sequence_url`), `scene` (rows are shots, with static `scene_url`), `shot` (one row per shot, with `shot_url`, `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame, with `frame_url`) tables |
-| `004_layer.cql` | `layer` table (one row per layer, partitioned by shot, with `name`, `type`, `z_order`, `asset_ref`, `visibility`) |
+| `002_exposure_sheet.cql` | `exposure_sheet` table holding the URLs of an XML file and an SVG file per shot, keyed by episode, sequence, scene and shot |
+| `003_hierarchy.cql` | `episode` (one row per sequence), `sequence` (one row per scene), `scene` (one row per shot), `shot` (one row per shot, with `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame); see "Production hierarchy" below |
+| `004_layer.cql` | `layer` table (one row per layer, partitioned by episode, sequence, scene and shot, with `name`, `type`, `z_order`, `asset_ref`, `visibility`) |
 | `005_asset.cql` | `asset` table (`name`, `category`, `version`, `source_url`, `description`) |
 | `006_user.cql` | `user` table (`username`, `email`, `display_name`, `role`, `created_at`, `description`) and `user_by_email` lookup table |
-| `007_audio_dialog_note.cql` | `audio_ref` (`track`, `start_frame`, `end_frame`), `dialog` (`phoneme`) and `note` (`note_text`) tables, partitioned by shot and referenced from `frame` |
-| `008_timeline.cql` | `timeline` table (one row per entry, ordered by `position`, each pointing at a frame) |
+| `007_audio_dialog_note.cql` | `audio_ref` (`track`, `start_frame`, `end_frame`), `dialog` (`phoneme`) and `note` (`note_text`) tables, partitioned by episode, sequence, scene and shot and referenced from `frame` |
+| `008_timeline.cql` | `timeline` table (one row per entry, ordered by `position`, each pointing at a frame by episode, sequence, scene, shot and frame number) |
 | `009_project.cql` | `project` table (`name`, `status`, `owner_id`, `created_at`, `description`) and `project_member` table (one row per member, with `role` and `added_at`) and `project_by_user` lookup table |
-| `010_review.cql` | `review` table (one row per review of a frame, with `reviewer`, `status` and `comment_refs`), `comment` table (`comment_text`) and `review_by_frame` lookup table |
+| `010_review.cql` | `review` table (one row per review of a frame, identified by episode, sequence, scene, shot and frame number, with `reviewer`, `status` and `comment_refs`), `comment` table (`comment_text`) and `review_by_frame` lookup table |
 | `011_audio_track.cql` | `track` table (`name`, `type`, `file_name`, `url`, `description`) and `audio_tracks` table (an ordered group of tracks), both shared across projects |
-| `012_camera.cql` | `camera_move`, `keyframe` and `camera` tables, partitioned by shot; `camera` has `name`, `projection` and lists of move and keyframe references |
+| `012_camera.cql` | `camera_move`, `keyframe` and `camera` tables, partitioned by episode, sequence, scene and shot; `camera` has `name`, `projection` and lists of move and keyframe references |
 | `013_version_control.cql` | `version_control` table and `revision` table (one row per revision, newest first, with `author`, `created_at` in UTC and `description`) |
 
 Every table has a `description` text column.
+
+#### Production hierarchy
+
+A project has a production, and a production is built from these levels:
+
+```
+production > episode > sequence > scene > shot > frame
+```
+
+Each table holds the children of one parent, so one partition is one parent and its rows are that parent's
+children, read together in one query:
+
+| Table | One row per | Partition key |
+| ----- | ----------- | ------------- |
+| `production` | episode | `project_id` |
+| `episode` | sequence | `project_id`, `episode_id` |
+| `sequence` | scene | `project_id`, `sequence_id` |
+| `scene` | shot | `project_id`, `episode_id`, `sequence_id`, `scene_id` |
+| `shot` | shot (holds the shot's own attributes) | `project_id`, `episode_id`, `sequence_id`, `scene_id`, `shot_id` |
+| `frame` | layer of a frame | the `shot` key; rows ordered by `frame_number`, `layer_id` |
+
+`episode_id` is part of the key of every table below the episode level that identifies a shot or a frame
+(`scene`, `shot`, `frame`, `exposure_sheet`, `layer`, `audio_ref`, `dialog`, `note`, `camera_move`, `keyframe`,
+`camera`, `review_by_frame`). `timeline` and `review` point at a frame with `episode_id`, `sequence_id`,
+`scene_id`, `shot_id` and `frame_number` columns. Cassandra does not enforce these references.
+
+Each level has a column holding a URL to that item in an asset management tool:
+
+| Table | Column | Kind |
+| ----- | ------ | ---- |
+| `episode` | `episode_url` | static |
+| `sequence` | `sequence_url` | static |
+| `scene` | `scene_url` | static |
+| `shot` | `shot_url` | regular |
+| `frame` | `frame_url` | regular |
+
+In `episode`, `sequence` and `scene` the rows are the children, so the URL belongs to the partition and is a
+static column: it is stored once and shared by all rows of the partition. In the REST API, set it with a body
+that has only the partition key and the static column. `frame_url` is stored on every layer row of a frame.
+
+Changing the primary key of an existing table is not possible in Cassandra. A keyspace created before
+`episode_id` was added needs `production`, `scene`, `shot`, `frame` and the other tables listed above dropped
+and recreated (or a new keyspace); the `*_url` columns can be added with `ALTER TABLE`.
 
 ### Schema documentation
 
