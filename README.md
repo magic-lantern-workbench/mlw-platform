@@ -184,12 +184,42 @@ root) and is the `app` service in the compose files.
 - **OpenAPI specification:** <http://localhost:8090/api/v1/openapi.yaml> (served by the app, no token needed)
 
 ```bash
-docker compose up -d --build     # builds the image, starts Cassandra and the app
-curl localhost:8090/api/v1/tables
+docker compose up -d --build     # builds the image, starts Cassandra, Keycloak and the app
+curl localhost:8090/api/v1/health
 ```
 
 For local development the app waits for Cassandra and creates the schema (`cql/*.cql`, embedded in the
-image) on first start. The port is `APP_PORT` (default 8090, bound to `127.0.0.1`).
+image) on first start. The port is `APP_PORT` (default 8090, bound to `127.0.0.1`). The local setup also
+starts Keycloak, so the web UI asks you to log in (see "Logging in").
+
+### Logging in
+
+When login is configured (`OIDC_ISSUER` is set, which the local and production compose files do), opening the
+web UI shows a login page instead of the tables:
+
+1. Click **Sign in with Keycloak**. The browser goes to the Keycloak login page of the `mlw` realm.
+2. Enter your user name and password. In local development the user is `mlw` with password `mlw`; in
+   production create users in the Keycloak admin console (see "Keycloak").
+3. Keycloak sends you back to the app, which shows the tables. Your name and a **Sign out** button are at the
+   top of the sidebar. The page you were on (`#table-name` in the address) is kept.
+
+The session lives in the browser tab: reloading keeps you signed in, closing the tab does not. The access
+token is renewed in the background. If it can no longer be renewed or the API refuses it, the login page
+comes back. **Sign out** also ends your Keycloak session. The *API documentation* page uses your login for
+"Try it out".
+
+For scripts, send either an access token from the realm or the static `API_TOKEN` as a bearer token. In local
+development, with the test user:
+
+```bash
+TOKEN=$(curl -s -d 'client_id=mlw-app&username=mlw&password=mlw&grant_type=password' \
+  http://localhost:8180/realms/mlw/protocol/openid-connect/token | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" localhost:8090/api/v1/tables
+```
+
+Without `OIDC_ISSUER` there is no login page: the API is open, or needs `API_TOKEN`, which the web UI asks
+for when the server refuses a request. Login is configured in the "Keycloak" section below; the `OIDC_*`
+settings are in the table that follows.
 
 ### Configuration
 
@@ -238,8 +268,8 @@ docker compose -f docker-compose.yml up -d --build app
   replication in `cql/001_production.cql` first), or set `APPLY_SCHEMA=true` once.
 - If the cluster advertises addresses you cannot reach (SSH tunnel, NAT, port forwarding), also set
   `CASSANDRA_DISABLE_INITIAL_HOST_LOOKUP=true` and `CASSANDRA_IGNORE_PEER_ADDR=true`.
-- Without `API_TOKEN` the API is open. Set one and use HTTPS (see "HTTPS and TLS") when the app is reachable
-  over a network.
+- Without `API_TOKEN` or `OIDC_ISSUER` the API is open. Set one (or point `OIDC_ISSUER` and `OIDC_JWKS_URL` at
+  your Keycloak, see "Keycloak") and use HTTPS (see "HTTPS and TLS") when the app is reachable over a network.
 
 ### HTTPS and TLS
 
@@ -366,8 +396,8 @@ ALTER ROLE cassandra WITH PASSWORD = 'a-long-random-string' AND SUPERUSER = fals
 
 | Command | Cassandra auth | Cassandra port | App | Restart policy |
 | ------- | -------------- | -------------- | --- | -------------- |
-| `docker compose up -d` (dev) | none | `127.0.0.1:9042` | `127.0.0.1:8090`, schema applied, token optional | no |
-| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | `${APP_BIND}:8090`, token required | unless-stopped |
+| `docker compose up -d` (dev) | none | `127.0.0.1:9042` | `127.0.0.1:8090`, schema applied, login with Keycloak (`127.0.0.1:8180`) | no |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | password | `${CASSANDRA_BIND}:9042` | `${APP_BIND}:8090`, token required, login with Keycloak | unless-stopped |
 | `docker compose -f docker-compose.yml up -d app` | remote, per `.env` | none (no local Cassandra) | `${APP_BIND}:8090` | no |
 
 Add `-f docker-compose.tls.yml` to any of these for HTTPS and encrypted Cassandra connections (see "HTTPS and TLS").
