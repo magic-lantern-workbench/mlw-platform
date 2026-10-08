@@ -17,7 +17,7 @@ info:
 
     **Lookup tables** (`user_by_email`, `project_by_user`, `review_by_frame`) repeat data from another table under a different key. The API keeps them in step with their source tables, and they are read-only (405).
 
-    **Authentication.** If the server has an API token configured, send it as `Authorization: Bearer <token>`. Without a configured token the API is open. The token is sent in every request, so use HTTPS whenever the API is reachable over a network.
+    **Authentication.** If the server has an API token configured, send it as `Authorization: Bearer <token>`. If it is configured for login with Keycloak (OIDC_ISSUER), an access token issued by the realm to the client `mlw-app` is accepted as well. Without either the API is open. The token is sent in every request, so use HTTPS whenever the API is reachable over a network.
   license:
     name: See the LICENSE file in the repository
 servers:
@@ -89,6 +89,39 @@ paths:
                     example: unavailable
                   error:
                     type: string
+  /auth/config:
+    get:
+      tags:
+        - Service
+      operationId: getAuthConfig
+      summary: Get the login settings
+      security: []
+      description: "Tells the web user interface how to log in: whether login with Keycloak is configured and, if so, the issuer and client id to use. Needs no token."
+      responses:
+        "200":
+          description: The login settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - enabled
+                  - tokenAuth
+                properties:
+                  enabled:
+                    type: boolean
+                    description: Login with an OpenID Connect provider is configured.
+                  issuer:
+                    type: string
+                    example: http://localhost:8180/realms/mlw
+                    description: URL of the realm; only present when enabled.
+                  clientId:
+                    type: string
+                    example: mlw-app
+                    description: The public client to log in with; only present when enabled.
+                  tokenAuth:
+                    type: boolean
+                    description: A static API token is also accepted.
   /openapi.yaml:
     get:
       tags:
@@ -6884,7 +6917,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Required only when the server is started with API_TOKEN.
+      description: "Required only when the server is started with API_TOKEN or OIDC_ISSUER: the API token, or an access token issued by Keycloak."
   responses:
     BadRequest:
       description: "The request cannot be used: invalid JSON, an unknown column, a value of the wrong type, a missing key column, the wrong number of key values, or an invalid limit or pageState."

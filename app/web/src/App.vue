@@ -1,7 +1,9 @@
 <script setup>
-import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { api, ApiError, getToken, setToken } from './api.js'
 import RowForm from './RowForm.vue'
+import LoginView from './LoginView.vue'
+import { auth, initAuth, logout, userName } from './auth.js'
 
 const SwaggerView = defineAsyncComponent(() => import('./SwaggerView.vue'))
 
@@ -28,7 +30,11 @@ const columns = computed(() => current.value?.columns ?? [])
 const isKey = (c) => keyCols.value.includes(c.name)
 
 function fail(e) {
-  if (e instanceof ApiError && e.status === 401) {
+  if (e instanceof ApiError && e.status === 401 && auth.enabled) {
+    // the access token was refused or has expired: sign in again
+    auth.user = null
+    auth.error = 'Your session has ended. Sign in again.'
+  } else if (e instanceof ApiError && e.status === 401) {
     needToken.value = true
     error.value = 'This server needs an API token.'
   } else {
@@ -147,14 +153,25 @@ function show(v) {
 }
 const isNull = (v) => v === null || v === undefined || (Array.isArray(v) && v.length === 0)
 
-onMounted(loadTables)
+onMounted(async () => {
+  await initAuth()
+  if (!auth.enabled || auth.user) await loadTables()
+})
+// the login page is shown when the user signs out or the session ends; load the tables after signing in
+watch(() => auth.user, (u, old) => { if (u && !old && tables.value.length === 0) loadTables() })
 </script>
 
 <template>
-  <div class="layout">
+  <div v-if="!auth.ready" class="empty">Loading…</div>
+  <LoginView v-else-if="auth.enabled && !auth.user" />
+  <div v-else class="layout">
     <aside class="side">
       <h1>MLW Database</h1>
       <div class="ks">keyspace <code>{{ keyspace || '…' }}</code></div>
+      <div v-if="auth.enabled" class="user">
+        <span>{{ userName() }}</span>
+        <button @click="logout">Sign out</button>
+      </div>
       <button class="nav" :class="{ on: view === 'api' }" @click="showApi">API documentation</button>
       <input v-model="filter" placeholder="Filter tables" />
       <ul>

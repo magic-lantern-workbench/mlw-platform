@@ -42,7 +42,7 @@ onBeforeUnmount(() => { if (root.value) root.value.innerHTML = '' })
     <h2>API documentation</h2>
     <div class="path">
       OpenAPI 3.0 · <a href="/api/v1/openapi.yaml" target="_blank" rel="noopener">openapi.yaml</a>
-      · requests from “Try it out” go to this server and use the API token entered in this page
+      · requests from “Try it out” go to this server and use the access token of the signed-in user, or the API token entered in this application
     </div>
     <div v-if="error" class="error">{{ error }}</div>
     <div v-else-if="loading" class="empty">Loading…</div>

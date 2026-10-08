@@ -1,6 +1,12 @@
 package api
 
 import (
+	"context"
+	"io"
+	"log/slog"
+	"strings"
+
+	"github.com/magic-lantern-workbench/mlw-platform/app/internal/oidcauth"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,5 +77,52 @@ func TestUIFallback(t *testing.T) {
 	empty.ui().ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 	if w.Code != 404 {
 		t.Errorf("no UI built: %d", w.Code)
+	}
+}
+
+func TestAuthConfig(t *testing.T) {
+	get := func(s *Server) string {
+		w := httptest.NewRecorder()
+		s.authConfig(w, httptest.NewRequest("GET", "/api/v1/auth/config", nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("status %d", w.Code)
+		}
+		return strings.TrimSpace(w.Body.String())
+	}
+	if got, want := get(&Server{}), `{"enabled":false,"tokenAuth":false}`; got != want {
+		t.Errorf("open server: %s, want %s", got, want)
+	}
+	s := &Server{token: "t"}
+	s.UseOIDC(nil, "http://kc/realms/mlw", "mlw-app")
+	want := `{"enabled":true,"issuer":"http://kc/realms/mlw","clientId":"mlw-app","tokenAuth":true}`
+	if got := get(s); got != want {
+		t.Errorf("oidc server: %s, want %s", got, want)
+	}
+}
+
+func TestAuthWithOIDC(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// no token configured, only OIDC: a request without a valid access token is refused
+	s := &Server{log: log, oidc: oidcauth.New(context.Background(), "http://kc/realms/mlw", "http://127.0.0.1:1/certs", "mlw-app", "")}
+	h := s.auth(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	for _, header := range []string{"", "Bearer ", "Bearer not-a-jwt"} {
+		r := httptest.NewRequest("GET", "/api/v1/tables", nil)
+		if header != "" {
+			r.Header.Set("Authorization", header)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("%q: status %d, want 401", header, w.Code)
+		}
+	}
+	// the static token still works next to OIDC
+	s.token = "secret"
+	r := httptest.NewRequest("GET", "/api/v1/tables", nil)
+	r.Header.Set("Authorization", "Bearer secret")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("static token with OIDC: status %d", w.Code)
 	}
 }

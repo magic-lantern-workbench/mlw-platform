@@ -15,6 +15,13 @@ type Config struct {
 	Addr     string // HTTP listen address
 	APIToken string // bearer token required by the REST API; empty disables auth
 
+	// OIDC: when OIDCIssuer is set the API also accepts access tokens issued by
+	// an OpenID Connect provider (Keycloak), and the web UI shows a login page.
+	OIDCIssuer   string // public URL of the realm; the iss claim must equal it
+	OIDCClientID string // the public client the web UI logs in with
+	OIDCJWKSURL  string // where to fetch the signing keys; defaults to the Keycloak path under the issuer
+	OIDCRole     string // realm role a user must have; empty allows every user of the realm
+
 	// HTTPS: when both files are set the server speaks TLS instead of plain HTTP.
 	ServerCertFile string
 	ServerKeyFile  string
@@ -48,23 +55,31 @@ type Config struct {
 	StartupWait time.Duration // how long to keep retrying the first connection
 }
 
+// OIDC reports whether login with an OpenID Connect provider is configured.
+func (c Config) OIDC() bool { return c.OIDCIssuer != "" }
+
 // HTTPS reports whether the server should speak TLS.
 func (c Config) HTTPS() bool { return c.ServerCertFile != "" }
 
 // Load reads the configuration from the environment.
 func Load() (Config, error) {
 	c := Config{
-		Addr:        env("ADDR", ":8080"),
-		APIToken:    os.Getenv("API_TOKEN"),
-		Port:        9042,
-		Keyspace:    env("CASSANDRA_KEYSPACE", "mlw"),
-		Username:    os.Getenv("CASSANDRA_USERNAME"),
-		Password:    os.Getenv("CASSANDRA_PASSWORD"),
-		LocalDC:     os.Getenv("CASSANDRA_LOCAL_DC"),
-		Consistency: strings.ToUpper(env("CASSANDRA_CONSISTENCY", "LOCAL_QUORUM")),
-		TLSCAFile:   os.Getenv("CASSANDRA_TLS_CA_FILE"),
-		TLSCertFile: os.Getenv("CASSANDRA_TLS_CERT_FILE"),
-		TLSKeyFile:  os.Getenv("CASSANDRA_TLS_KEY_FILE"),
+		Addr:     env("ADDR", ":8080"),
+		APIToken: os.Getenv("API_TOKEN"),
+
+		OIDCIssuer:   strings.TrimRight(os.Getenv("OIDC_ISSUER"), "/"),
+		OIDCClientID: env("OIDC_CLIENT_ID", "mlw-app"),
+		OIDCJWKSURL:  os.Getenv("OIDC_JWKS_URL"),
+		OIDCRole:     os.Getenv("OIDC_REQUIRED_ROLE"),
+		Port:         9042,
+		Keyspace:     env("CASSANDRA_KEYSPACE", "mlw"),
+		Username:     os.Getenv("CASSANDRA_USERNAME"),
+		Password:     os.Getenv("CASSANDRA_PASSWORD"),
+		LocalDC:      os.Getenv("CASSANDRA_LOCAL_DC"),
+		Consistency:  strings.ToUpper(env("CASSANDRA_CONSISTENCY", "LOCAL_QUORUM")),
+		TLSCAFile:    os.Getenv("CASSANDRA_TLS_CA_FILE"),
+		TLSCertFile:  os.Getenv("CASSANDRA_TLS_CERT_FILE"),
+		TLSKeyFile:   os.Getenv("CASSANDRA_TLS_KEY_FILE"),
 
 		TLSServerName:  os.Getenv("CASSANDRA_TLS_SERVER_NAME"),
 		ServerCertFile: os.Getenv("TLS_CERT_FILE"),
@@ -113,6 +128,9 @@ func Load() (Config, error) {
 	}
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return c, fmt.Errorf("CASSANDRA_TLS_CERT_FILE and CASSANDRA_TLS_KEY_FILE must be set together")
+	}
+	if c.OIDCIssuer != "" && c.OIDCJWKSURL == "" {
+		c.OIDCJWKSURL = c.OIDCIssuer + "/protocol/openid-connect/certs"
 	}
 	if len(c.Hosts) == 0 {
 		return c, fmt.Errorf("CASSANDRA_HOSTS is empty")

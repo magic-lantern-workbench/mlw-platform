@@ -32,6 +32,9 @@ services:
     environment:
       # anyone who can reach the port can change data, so a token is required
       API_TOKEN: ${API_TOKEN:?set API_TOKEN in .env}
+      # login with Keycloak; the API token still works for scripts
+      OIDC_ISSUER: ${KEYCLOAK_HOSTNAME:?set KEYCLOAK_HOSTNAME in .env}/realms/mlw
+      OIDC_JWKS_URL: http://keycloak:8080/realms/mlw/protocol/openid-connect/certs
       # the cassandra service above has authentication on; see the README for the first-time login
       CASSANDRA_USERNAME: ${CASSANDRA_USERNAME:-cassandra}
       CASSANDRA_PASSWORD: ${CASSANDRA_PASSWORD:-cassandra}
@@ -41,14 +44,19 @@ services:
   # set KEYCLOAK_HOSTNAME to the public URL (for example https://id.example.org).
   keycloak:
     restart: unless-stopped
-    command: ["start", "--http-enabled=true", "--proxy-headers=xforwarded"]
+    command: ["start", "--http-enabled=true", "--proxy-headers=xforwarded", "--import-realm"]
     depends_on:
       keycloak-db:
         condition: service_healthy
+    volumes:
+      # realm "mlw" with the client mlw-app, without users: create them in the admin console
+      - ./docker/keycloak/mlw-realm.json:/opt/keycloak/data/import/mlw-realm.json:ro
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?set KEYCLOAK_ADMIN in .env}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?set KEYCLOAK_HOSTNAME in .env}
+      # the realm file lists this URL as the address of the app
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:?set APP_PUBLIC_URL in .env}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak

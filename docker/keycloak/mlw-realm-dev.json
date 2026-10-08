@@ -1,0 +1,76 @@
+{
+  "realm": "mlw",
+  "displayName": "Magic Lantern Workbench",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "mlw-user",
+        "description": "May use the MLW database application"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mlw-app",
+      "name": "MLW Database",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8090/*",
+        "https://localhost:8090/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8090",
+        "https://localhost:8090",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8090/*##https://localhost:8090/*##http://localhost:5173/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "mlw",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "User",
+      "email": "mlw@example.org",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "mlw",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "mlw-user"
+      ]
+    }
+  ]
+}

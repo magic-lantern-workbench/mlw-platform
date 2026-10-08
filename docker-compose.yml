@@ -40,11 +40,17 @@ services:
       CASSANDRA_IGNORE_PEER_ADDR: ${CASSANDRA_IGNORE_PEER_ADDR:-false}
       APPLY_SCHEMA: ${APPLY_SCHEMA:-false}
       API_TOKEN: ${API_TOKEN:-}
+      # Login with Keycloak: the page shows a login button and the API accepts
+      # its access tokens when OIDC_ISSUER (the public URL of the realm) is set.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-mlw-app}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
+      OIDC_REQUIRED_ROLE: ${OIDC_REQUIRED_ROLE:-}
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8090}:8080"
 
-  # Keycloak identity and access management (keycloak.org). It is not wired to
-  # the app yet: it runs next to it so realms, clients and users can be set up.
+  # Keycloak identity and access management (keycloak.org). The app uses it for
+  # login (see OIDC_* above); the mlw realm and its client are imported at start.
   # Local dev (override file): start-dev with an embedded H2 database.
   # Remote (prod file): production mode with a PostgreSQL database.
   keycloak:

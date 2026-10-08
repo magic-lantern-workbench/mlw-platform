@@ -1,0 +1,52 @@
+{
+  "realm": "mlw",
+  "displayName": "Magic Lantern Workbench",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "mlw-user",
+        "description": "May use the MLW database application"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mlw-app",
+      "name": "MLW Database",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "${APP_PUBLIC_URL}/*"
+      ],
+      "webOrigins": [
+        "${APP_PUBLIC_URL}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${APP_PUBLIC_URL}/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    }
+  ]
+}

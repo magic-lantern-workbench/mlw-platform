@@ -105,7 +105,8 @@ para('Cassandra stores the rows of one partition together, in clustering key ord
 H2('1.5 Authentication');
 para('If the application is started with the environment variable API_TOKEN, every request under /api/v1 (except the health check) must send the token as a bearer token:');
 code(`curl -H 'Authorization: Bearer <token>' ${BASE}/api/v1/tables`);
-para('A missing or wrong token gives 401 Unauthorized. If API_TOKEN is not set the API is open, and the application logs a warning at startup. The production Compose file requires a token. The token is sent in every request, so use HTTPS whenever the API is reachable over a network (section 1.2).');
+para('If the application is also started with OIDC_ISSUER (login with Keycloak), the bearer token can instead be an access token issued by that realm to the client mlw-app. The application checks its signature, issuer, expiry and client, and the realm role in OIDC_REQUIRED_ROLE if one is set. ID tokens are refused. The web user interface logs in with the authorization code flow with PKCE and sends the access token; the endpoint GET /api/v1/auth/config, which needs no token, tells it the issuer and client id. A static API token and Keycloak login can be used together, for example the token for scripts.');
+para('A missing or wrong token gives 401 Unauthorized. If neither API_TOKEN nor OIDC_ISSUER is set the API is open, and the application logs a warning at startup. The production Compose file requires a token. The token is sent in every request, so use HTTPS whenever the API is reachable over a network (section 1.2).');
 
 H2('1.6 Errors');
 para('Errors use an HTTP status code and a JSON body with a machine-readable code and a message:');
@@ -364,6 +365,10 @@ para('The application is configured with environment variables. The Docker Compo
 grid([3300, 1800, 4260], ['Variable', 'Default', 'Description'], [
   ['ADDR', ':8080', 'Listen address inside the container.'],
   ['API_TOKEN', '(none)', 'Bearer token the API requires. Required by the production Compose file.'],
+  ['OIDC_ISSUER', '(none)', 'Public URL of the Keycloak realm. Turns on the login page and accepts access tokens of that realm.'],
+  ['OIDC_CLIENT_ID', 'mlw-app', 'The public Keycloak client the web user interface logs in with.'],
+  ['OIDC_JWKS_URL', '<issuer>/protocol/openid-connect/certs', 'Where the signing keys are fetched, when Keycloak is reached at another address than browsers use.'],
+  ['OIDC_REQUIRED_ROLE', '(none)', 'Realm role a user must have. Empty allows every user of the realm.'],
   ['CASSANDRA_HOSTS', 'localhost (cassandra in Compose)', 'Comma separated contact points. Set it to use a remote Cassandra.'],
   ['CASSANDRA_PORT', '9042', 'CQL port.'],
   ['CASSANDRA_KEYSPACE', 'mlw', 'Keyspace the tables are in.'],

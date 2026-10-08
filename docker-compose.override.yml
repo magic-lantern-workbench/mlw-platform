@@ -13,7 +13,13 @@ services:
 
   keycloak:
     restart: "no"
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
+    environment:
+      # fixed so tokens always carry this issuer, whichever address Keycloak is reached by
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+    volumes:
+      # realm "mlw" with the client mlw-app and the user mlw / mlw (development only)
+      - ./docker/keycloak/mlw-realm-dev.json:/opt/keycloak/data/import/mlw-realm.json:ro
 
   app:
     restart: "no"
@@ -23,3 +29,6 @@ services:
     environment:
       # the local database starts empty, so let the app create the schema
       APPLY_SCHEMA: ${APPLY_SCHEMA:-true}
+      # tokens are issued for the address the browser uses; the keys are fetched over the compose network
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:${KEYCLOAK_PORT:-8180}/realms/mlw}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/mlw/protocol/openid-connect/certs}

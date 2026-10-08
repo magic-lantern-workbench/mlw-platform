@@ -17,6 +17,7 @@ import (
 
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/api"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/config"
+	"github.com/magic-lantern-workbench/mlw-platform/app/internal/oidcauth"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/store"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/tlsutil"
 	"github.com/magic-lantern-workbench/mlw-platform/app/web"
@@ -47,16 +48,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer st.Close()
-	if cfg.APIToken == "" {
-		log.Warn("API_TOKEN is not set: the REST API is unauthenticated")
+	if cfg.APIToken == "" && !cfg.OIDC() {
+		log.Warn("neither API_TOKEN nor OIDC_ISSUER is set: the REST API is unauthenticated")
 	}
 	if cfg.TLS && cfg.TLSSkipVerify {
 		log.Warn("CASSANDRA_TLS_SKIP_VERIFY is set: the Cassandra server certificate is not verified")
 	}
 
+	apiServer := api.New(st, cfg.APIToken, web.Files(), log)
+	if cfg.OIDC() {
+		log.Info("login with OpenID Connect enabled", "issuer", cfg.OIDCIssuer, "client", cfg.OIDCClientID, "jwks", cfg.OIDCJWKSURL, "role", cfg.OIDCRole)
+		apiServer.UseOIDC(oidcauth.New(ctx, cfg.OIDCIssuer, cfg.OIDCJWKSURL, cfg.OIDCClientID, cfg.OIDCRole), cfg.OIDCIssuer, cfg.OIDCClientID)
+	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.New(st, cfg.APIToken, web.Files(), log).Handler(),
+		Handler:           apiServer.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -69,8 +75,8 @@ func main() {
 			os.Exit(1)
 		}
 		srv.TLSConfig = &tls.Config{MinVersion: cfg.MinTLSVersion, GetCertificate: certs.GetCertificate}
-	} else if cfg.APIToken != "" {
-		log.Warn("serving plain HTTP: the API token is sent unencrypted; set TLS_CERT_FILE and TLS_KEY_FILE, or put an HTTPS proxy in front")
+	} else if cfg.APIToken != "" || cfg.OIDC() {
+		log.Warn("serving plain HTTP: tokens are sent unencrypted; set TLS_CERT_FILE and TLS_KEY_FILE, or put an HTTPS proxy in front")
 	}
 	go func() {
 		<-ctx.Done()

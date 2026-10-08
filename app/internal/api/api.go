@@ -3,6 +3,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magic-lantern-workbench/mlw-platform/app/internal/oidcauth"
 	"github.com/magic-lantern-workbench/mlw-platform/app/internal/store"
 )
 
@@ -30,11 +32,13 @@ const (
 
 // Server serves the API under /api/v1 and the web UI everywhere else.
 type Server struct {
-	st     *store.Store
-	token  string
-	static fs.FS
-	log    *slog.Logger
-	spec   []byte // OpenAPI document served at /api/v1/openapi.yaml, nil if not built in
+	st      *store.Store
+	token   string
+	static  fs.FS
+	log     *slog.Logger
+	oidc    *oidcauth.Verifier // nil when login with OpenID Connect is not configured
+	oidcCfg authConfig
+	spec    []byte // OpenAPI document served at /api/v1/openapi.yaml, nil if not built in
 }
 
 // New creates a Server. An empty token disables authentication.
@@ -46,11 +50,28 @@ func New(st *store.Store, token string, static fs.FS, log *slog.Logger) *Server 
 	return &Server{st: st, token: token, static: static, log: log, spec: spec}
 }
 
+// authConfig is what the web UI needs to log in; it is public.
+type authConfig struct {
+	Enabled  bool   `json:"enabled"`
+	Issuer   string `json:"issuer,omitempty"`
+	ClientID string `json:"clientId,omitempty"`
+	// TokenAuth tells the UI whether a static API token is also accepted
+	TokenAuth bool `json:"tokenAuth"`
+}
+
+// UseOIDC makes the API accept access tokens that v verifies, and publishes
+// the issuer and client id at /api/v1/auth/config for the web UI.
+func (s *Server) UseOIDC(v *oidcauth.Verifier, issuer, clientID string) {
+	s.oidc = v
+	s.oidcCfg = authConfig{Enabled: true, Issuer: issuer, ClientID: clientID}
+}
+
 // Handler returns the HTTP handler.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.health)
 	mux.HandleFunc("GET /api/v1/openapi.yaml", s.openapi)
+	mux.HandleFunc("GET /api/v1/auth/config", s.authConfig)
 	mux.Handle("GET /api/v1/tables", s.auth(s.listTables))
 	mux.Handle("GET /api/v1/tables/{table}", s.auth(s.getTable))
 	mux.Handle("GET /api/v1/{table}", s.auth(s.read))
@@ -89,12 +110,20 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) authConfig(w http.ResponseWriter, r *http.Request) {
+	c := s.oidcCfg
+	c.TokenAuth = s.token != ""
+	writeJSON(w, http.StatusOK, c)
+}
+
+// auth lets a request through when it carries the static API token or, if
+// OpenID Connect is configured, a valid access token. With neither
+// configured the API is open.
 func (s *Server) auth(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.token != "" {
+		if s.token != "" || s.oidc != nil {
 			got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			a, b := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(s.token))
-			if !ok || subtle.ConstantTimeCompare(a[:], b[:]) != 1 {
+			if !ok || !s.allowed(r.Context(), got) {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="mlw"`)
 				writeError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid bearer token")
 				return
@@ -102,6 +131,23 @@ func (s *Server) auth(next http.HandlerFunc) http.Handler {
 		}
 		next(w, r)
 	})
+}
+
+func (s *Server) allowed(ctx context.Context, got string) bool {
+	if s.token != "" {
+		a, b := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(s.token))
+		if subtle.ConstantTimeCompare(a[:], b[:]) == 1 {
+			return true
+		}
+	}
+	if s.oidc != nil && got != "" {
+		if _, err := s.oidc.Verify(ctx, got); err == nil {
+			return true
+		} else {
+			s.log.Debug("access token rejected", "error", err)
+		}
+	}
+	return false
 }
 
 // ---- responses ----

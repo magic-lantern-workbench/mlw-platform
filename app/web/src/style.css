@@ -54,3 +54,9 @@ td.actions button { padding: 2px 8px; margin-right: 4px; }
 .field .hint { font-size: 11px; color: var(--muted); }
 .dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .side { position: static; max-height: 40vh; } }
+
+.side .user { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 13px; }
+.login { max-width: 360px; margin: 18vh auto 0; padding: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; text-align: center; }
+.login h1 { font-size: 20px; margin: 0 0 4px; }
+.login p { color: var(--muted); margin: 0 0 16px; }
+.login .error { margin-bottom: 12px; }

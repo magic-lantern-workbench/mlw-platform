@@ -206,6 +206,10 @@ The main ones:
 | `CASSANDRA_TLS`, `CASSANDRA_TLS_CA_FILE` | `false` | Connect to Cassandra with TLS (see "HTTPS and TLS"). |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` | none | Serve HTTPS with this certificate and key. |
 | `API_TOKEN` | none | Bearer token required by the REST API (required in production). |
+| `OIDC_ISSUER` | none | Public URL of the Keycloak realm, for example `http://localhost:8180/realms/mlw`. Turns on the login page and accepts the realm's access tokens (see "Keycloak"). |
+| `OIDC_CLIENT_ID` | `mlw-app` | The public Keycloak client the web UI logs in with. |
+| `OIDC_JWKS_URL` | `<issuer>/protocol/openid-connect/certs` | Where the app fetches the signing keys, when Keycloak is reached at a different address than browsers use. |
+| `OIDC_REQUIRED_ROLE` | none | Realm role a user must have. Empty allows every user of the realm. |
 | `APPLY_SCHEMA` | `true` locally, otherwise `false` | Create the schema at startup (safe to repeat). |
 
 All variables are listed in section 5 of the REST API document.
@@ -276,15 +280,30 @@ Notes:
 
 ### Keycloak
 
-The `keycloak` service runs [Keycloak](https://www.keycloak.org) for identity and access management. It is
-not connected to the app yet; it runs alongside it so realms, clients and users can be set up.
+The `keycloak` service runs [Keycloak](https://www.keycloak.org) for identity and access management. The app
+uses it for login: when `OIDC_ISSUER` is set, the web UI shows a login page with a **Sign in with Keycloak**
+button and the REST API accepts the access tokens of the `mlw` realm.
+
+- The browser logs in with the authorization code flow with PKCE (client `mlw-app`, a public client) and sends
+  the access token with every request; tokens are kept in the browser tab only and refreshed with the refresh
+  token. Signing out also ends the Keycloak session.
+- The API checks each token's signature (keys from `OIDC_JWKS_URL`), issuer, expiry and client, and refuses ID
+  tokens. Set `OIDC_REQUIRED_ROLE` (for example `mlw-user`) to also require a realm role.
+- `API_TOKEN` keeps working next to Keycloak, for scripts. `GET /api/v1/auth/config` tells the web UI the
+  issuer and client; it needs no token.
+- The realm `mlw` and the client are created from `docker/keycloak/` when Keycloak starts. The import is skipped
+  if the realm already exists, so after editing the files remove the volume (`docker compose down -v`).
 
 - **Local development:** `docker compose up -d keycloak` starts it in `start-dev` mode with an embedded
   database (kept in the `keycloak_data` volume). The admin console is at http://localhost:8180 and the first
-  admin is `admin` / `admin`.
+  admin is `admin` / `admin`. The realm file `mlw-realm-dev.json` also creates the user `mlw` / `mlw`
+  (and allows password logins for testing the API with `curl`). The app is at http://localhost:8090.
+  If you change `KEYCLOAK_PORT`, the app follows it.
 - **Production:** with `docker-compose.prod.yml` it runs in production mode against a `keycloak-db` PostgreSQL
   container. `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD` and `KEYCLOAK_HOSTNAME` (the
-  public URL, for example `https://id.example.org`) must be set in `.env`. Keycloak serves plain HTTP on
+  public URL, for example `https://id.example.org`) and `APP_PUBLIC_URL` (where users open the app, for example
+  `https://mlw.example.org`, used for the client's redirect addresses) must be set in `.env`. The realm file
+  `mlw-realm.json` has no users: create them in the admin console of the `mlw` realm. Keycloak serves plain HTTP on
   `${KEYCLOAK_BIND:-127.0.0.1}:${KEYCLOAK_PORT:-8180}` and trusts `X-Forwarded-*` headers, so put a reverse
   proxy that terminates HTTPS in front of it. The bootstrap admin is only created on the first start; change
   its password in the admin console.

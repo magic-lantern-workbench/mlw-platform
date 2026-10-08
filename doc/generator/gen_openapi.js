@@ -226,7 +226,7 @@ const spec = {
       '',
       '**Lookup tables** (`user_by_email`, `project_by_user`, `review_by_frame`) repeat data from another table under a different key. The API keeps them in step with their source tables, and they are read-only (405).',
       '',
-      '**Authentication.** If the server has an API token configured, send it as `Authorization: Bearer <token>`. Without a configured token the API is open. The token is sent in every request, so use HTTPS whenever the API is reachable over a network.',
+      '**Authentication.** If the server has an API token configured, send it as `Authorization: Bearer <token>`. If it is configured for login with Keycloak (OIDC_ISSUER), an access token issued by the realm to the client `mlw-app` is accepted as well. Without either the API is open. The token is sent in every request, so use HTTPS whenever the API is reachable over a network.',
     ].join('\n'),
     license: { name: 'See the LICENSE file in the repository' },
   },
@@ -247,7 +247,7 @@ const spec = {
   paths: {},
   components: {
     securitySchemes: {
-      bearerAuth: { type: 'http', scheme: 'bearer', description: 'Required only when the server is started with API_TOKEN.' },
+      bearerAuth: { type: 'http', scheme: 'bearer', description: 'Required only when the server is started with API_TOKEN or OIDC_ISSUER: the API token, or an access token issued by Keycloak.' },
     },
     responses: {},
     schemas: {},
@@ -298,6 +298,23 @@ Object.assign(spec.paths, {
       responses: {
         200: { description: 'The service is healthy.', content: json({ type: 'object', required: ['status'], properties: { status: { type: 'string', example: 'ok' }, keyspace: { type: 'string', example: 'mlw' } } }) },
         503: { description: 'The database cannot be reached.', content: json({ type: 'object', properties: { status: { type: 'string', example: 'unavailable' }, error: { type: 'string' } } }) },
+      },
+    },
+  },
+  '/auth/config': {
+    get: {
+      tags: ['Service'], operationId: 'getAuthConfig', summary: 'Get the login settings', security: [],
+      description: 'Tells the web user interface how to log in: whether login with Keycloak is configured and, if so, the issuer and client id to use. Needs no token.',
+      responses: {
+        200: {
+          description: 'The login settings.',
+          content: json({ type: 'object', required: ['enabled', 'tokenAuth'], properties: {
+            enabled: { type: 'boolean', description: 'Login with an OpenID Connect provider is configured.' },
+            issuer: { type: 'string', example: 'http://localhost:8180/realms/mlw', description: 'URL of the realm; only present when enabled.' },
+            clientId: { type: 'string', example: 'mlw-app', description: 'The public client to log in with; only present when enabled.' },
+            tokenAuth: { type: 'boolean', description: 'A static API token is also accepted.' },
+          } }),
+        },
       },
     },
   },

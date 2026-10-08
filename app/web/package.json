@@ -8,6 +8,7 @@
     "build": "vite build && touch dist/.gitkeep"
   },
   "dependencies": {
+    "oidc-client-ts": "^3.5.0",
     "swagger-ui-dist": "^5.33.1",
     "vue": "^3.5.0"
   },

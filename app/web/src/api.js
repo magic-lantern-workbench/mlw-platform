@@ -1,8 +1,11 @@
 // Thin client for the REST API under /api/v1.
+import { accessToken } from './auth.js'
+
 let token = ''
 try { token = sessionStorage.getItem('mlw-token') || '' } catch { /* storage may be blocked */ }
 
-export function getToken() { return token }
+// The token to send: the access token of the signed-in user, else the API token entered by hand.
+export function getToken() { return accessToken() || token }
 export function setToken(t) {
   token = t
   try { sessionStorage.setItem('mlw-token', t) } catch { /* ignore */ }
@@ -20,7 +23,8 @@ const seg = (keys) => keys.map((k) => '/' + encodeURIComponent(k)).join('')
 
 async function call(method, path, body) {
   const headers = {}
-  if (token) headers.Authorization = 'Bearer ' + token
+  const bearer = getToken()
+  if (bearer) headers.Authorization = 'Bearer ' + bearer
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const res = await fetch('/api/v1' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
   if (res.status === 204) return null
