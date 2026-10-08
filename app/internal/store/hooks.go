@@ -96,7 +96,7 @@ func memberAfter(ctx context.Context, s *Store, old, new Row) error {
 
 // ---- review -> review_by_frame ----
 
-var frameKeyCols = []string{"project_id", "sequence_id", "scene_id", "shot_id", "frame_number", "review_id"}
+var frameKeyCols = []string{"project_id", "episode_id", "sequence_id", "scene_id", "shot_id", "frame_number", "review_id"}
 
 // frameKey returns the key of the review_by_frame row, or nil if the review
 // is not yet attached to a frame.
@@ -119,7 +119,7 @@ func reviewAfter(ctx context.Context, s *Store, old, new Row) error {
 	oldK, newK := frameKey(old), frameKey(new)
 	if oldK != nil && fmt.Sprint(oldK) != fmt.Sprint(newK) {
 		err := s.session.Query(
-			fmt.Sprintf(`DELETE FROM "%s"."review_by_frame" WHERE project_id = ? AND sequence_id = ? AND scene_id = ? AND shot_id = ? AND frame_number = ? AND review_id = ?`, s.keyspace),
+			fmt.Sprintf(`DELETE FROM "%s"."review_by_frame" WHERE project_id = ? AND episode_id = ? AND sequence_id = ? AND scene_id = ? AND shot_id = ? AND frame_number = ? AND review_id = ?`, s.keyspace),
 			oldK...).WithContext(ctx).Exec()
 		if err != nil {
 			return err
@@ -129,6 +129,6 @@ func reviewAfter(ctx context.Context, s *Store, old, new Row) error {
 		return nil
 	}
 	return s.session.Query(
-		fmt.Sprintf(`INSERT INTO "%s"."review_by_frame" (project_id, sequence_id, scene_id, shot_id, frame_number, review_id, reviewer, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, s.keyspace),
+		fmt.Sprintf(`INSERT INTO "%s"."review_by_frame" (project_id, episode_id, sequence_id, scene_id, shot_id, frame_number, review_id, reviewer, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, s.keyspace),
 		append(newK, new["reviewer"], new["status"])...).WithContext(ctx).Exec()
 }

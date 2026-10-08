@@ -41,7 +41,7 @@ tags:
   - name: Service
     description: Health, table metadata and this specification.
   - name: Production Hierarchy
-    description: Sequences, scenes, shots, frames and layers.
+    description: Episodes, sequences, scenes, shots, frames and layers.
   - name: Assets, Audio and Notes
     description: Assets, audio tracks, dialog and notes.
   - name: Camera and Timeline
@@ -150,6 +150,7 @@ paths:
               - camera_move
               - comment
               - dialog
+              - episode
               - exposure_sheet
               - frame
               - keyframe
@@ -289,7 +290,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /production/{project_id}/{sequence_id}:
+  /production/{project_id}/{episode_id}:
     parameters:
       - name: project_id
         in: path
@@ -298,13 +299,13 @@ paths:
         schema:
           type: string
         example: demo
-      - name: sequence_id
+      - name: episode_id
         in: path
         required: true
-        description: Identifier of a sequence in the production. The table holds one row per sequence.
+        description: Identifier of an episode in the production. The table holds one row per episode.
         schema:
           type: string
-        example: SQ010
+        example: EP01
     get:
       tags:
         - Production Hierarchy
@@ -397,6 +398,300 @@ paths:
           $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/Unavailable"
+  /episode:
+    get:
+      tags:
+        - Production Hierarchy
+      operationId: scanEpisode
+      summary: Scan episode
+      description: Returns the rows of the whole table one page at a time, in the order Cassandra stores them (not sorted). Avoid scanning large tables; list by key instead.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Page size.
+        - name: pageState
+          in: query
+          schema:
+            type: string
+          description: The nextPageState of the previous page. Use it with the same path and limit.
+      responses:
+        "200":
+          description: One page of rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags:
+        - Production Hierarchy
+      operationId: createEpisode
+      summary: Create a episode row
+      description: Creates a row. Fails with 409 if a row with the same key exists. Send the partition key and only static columns to set the static columns of a partition (an upsert; no row is created).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EpisodeInput"
+      responses:
+        "201":
+          description: The row was created.
+          headers:
+            Location:
+              description: Path of the new row.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /episode/{project_id}/{episode_id}:
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        description: Identifier of the project the row belongs to (project.project_id).
+        schema:
+          type: string
+        example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
+    get:
+      tags:
+        - Production Hierarchy
+      operationId: listEpisode
+      summary: List episode rows
+      description: Returns all rows of the partition, in clustering key order.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Page size.
+        - name: pageState
+          in: query
+          schema:
+            type: string
+          description: The nextPageState of the previous page. Use it with the same path and limit.
+      responses:
+        "200":
+          description: One page of rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    patch:
+      tags:
+        - Production Hierarchy
+      operationId: updateEpisodeStatic
+      summary: Update the static columns of a episode partition
+      description: Changes the static columns (episode_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                episode_url:
+                  type: string
+                  description: "URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    put:
+      tags:
+        - Production Hierarchy
+      operationId: replaceEpisodeStatic
+      summary: Replace the static columns of a episode partition
+      description: Changes the static columns (episode_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                episode_url:
+                  type: string
+                  description: "URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /episode/{project_id}/{episode_id}/{sequence_id}:
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        description: Identifier of the project the row belongs to (project.project_id).
+        schema:
+          type: string
+        example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
+      - name: sequence_id
+        in: path
+        required: true
+        description: Identifier of a sequence in the episode. The table holds one row per sequence.
+        schema:
+          type: string
+        example: SQ010
+    get:
+      tags:
+        - Production Hierarchy
+      operationId: getEpisode
+      summary: Get a episode row
+      description: Returns the row with this key.
+      responses:
+        "200":
+          description: The row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    put:
+      tags:
+        - Production Hierarchy
+      operationId: replaceEpisode
+      summary: Replace a episode row
+      description: Sets the columns in the body and sets the other non-key, non-static columns to null. Returns 404 if the row does not exist (PUT does not create rows).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EpisodePatch"
+      responses:
+        "200":
+          description: The updated row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    patch:
+      tags:
+        - Production Hierarchy
+      operationId: updateEpisode
+      summary: Change columns of a episode row
+      description: Changes only the columns in the body. Send null to clear a column. Returns 404 if the row does not exist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EpisodePatch"
+      responses:
+        "200":
+          description: The updated row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    delete:
+      tags:
+        - Production Hierarchy
+      operationId: deleteEpisode
+      summary: Delete a episode row
+      description: Deletes the row. Rows that refer to it are not changed.
+      responses:
+        "204":
+          description: The row was deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /sequence:
     get:
       tags:
@@ -436,7 +731,7 @@ paths:
         - Production Hierarchy
       operationId: createSequence
       summary: Create a sequence row
-      description: Creates a row. Fails with 409 if a row with the same key exists.
+      description: Creates a row. Fails with 409 if a row with the same key exists. Send the partition key and only static columns to set the static columns of a partition (an upsert; no row is created).
       requestBody:
         required: true
         content:
@@ -506,6 +801,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SequenceList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    patch:
+      tags:
+        - Production Hierarchy
+      operationId: updateSequenceStatic
+      summary: Update the static columns of a sequence partition
+      description: Changes the static columns (sequence_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                sequence_url:
+                  type: string
+                  description: "URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    put:
+      tags:
+        - Production Hierarchy
+      operationId: replaceSequenceStatic
+      summary: Replace the static columns of a sequence partition
+      description: Changes the static columns (sequence_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                sequence_url:
+                  type: string
+                  description: "URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -666,7 +1025,7 @@ paths:
         - Production Hierarchy
       operationId: createScene
       summary: Create a scene row
-      description: Creates a row. Fails with 409 if a row with the same key exists.
+      description: Creates a row. Fails with 409 if a row with the same key exists. Send the partition key and only static columns to set the static columns of a partition (an upsert; no row is created).
       requestBody:
         required: true
         content:
@@ -693,7 +1052,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /scene/{project_id}/{sequence_id}/{scene_id}:
+  /scene/{project_id}/{episode_id}/{sequence_id}/{scene_id}:
     parameters:
       - name: project_id
         in: path
@@ -702,6 +1061,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -749,7 +1115,71 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /scene/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+    patch:
+      tags:
+        - Production Hierarchy
+      operationId: updateSceneStatic
+      summary: Update the static columns of a scene partition
+      description: Changes the static columns (scene_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                scene_url:
+                  type: string
+                  description: "URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    put:
+      tags:
+        - Production Hierarchy
+      operationId: replaceSceneStatic
+      summary: Replace the static columns of a scene partition
+      description: Changes the static columns (scene_url) shared by all rows of the partition. Any other column gives 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                scene_url:
+                  type: string
+                  description: "URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows. (static column: shared by all rows of the partition)"
+                  nullable: true
+      responses:
+        "200":
+          description: The partition key and the static columns written.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /scene/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -758,6 +1188,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -937,7 +1374,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /shot/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /shot/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -946,6 +1383,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1125,7 +1569,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /frame/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /frame/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -1134,6 +1578,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1188,7 +1639,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /frame/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}:
+  /frame/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}:
     parameters:
       - name: project_id
         in: path
@@ -1197,6 +1648,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1259,7 +1717,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /frame/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}/{layer_id}:
+  /frame/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}/{layer_id}:
     parameters:
       - name: project_id
         in: path
@@ -1268,6 +1726,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1462,7 +1927,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /layer/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /layer/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -1471,6 +1936,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1525,7 +1997,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /layer/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{layer_id}:
+  /layer/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{layer_id}:
     parameters:
       - name: project_id
         in: path
@@ -1534,6 +2006,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1762,7 +2241,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /exposure_sheet/{project_id}/{sequence_id}:
+  /exposure_sheet/{project_id}/{episode_id}:
     parameters:
       - name: project_id
         in: path
@@ -1771,19 +2250,19 @@ paths:
         schema:
           type: string
         example: demo
-      - name: sequence_id
+      - name: episode_id
         in: path
         required: true
-        description: Identifier of the sequence the row belongs to.
+        description: Identifier of the episode the row belongs to.
         schema:
           type: string
-        example: SQ010
+        example: EP01
     get:
       tags:
         - Production Hierarchy
-      operationId: listExposureSheetBySequenceId
+      operationId: listExposureSheetByEpisodeId
       summary: List exposure_sheet rows
-      description: Returns the rows of the partition whose clustering key starts with sequence_id.
+      description: Returns the rows of the partition whose clustering key starts with episode_id.
       parameters:
         - name: limit
           in: query
@@ -1811,7 +2290,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /exposure_sheet/{project_id}/{sequence_id}/{scene_id}:
+  /exposure_sheet/{project_id}/{episode_id}/{sequence_id}:
     parameters:
       - name: project_id
         in: path
@@ -1820,6 +2299,69 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
+      - name: sequence_id
+        in: path
+        required: true
+        description: Identifier of the sequence the row belongs to.
+        schema:
+          type: string
+        example: SQ010
+    get:
+      tags:
+        - Production Hierarchy
+      operationId: listExposureSheetByEpisodeIdAndSequenceId
+      summary: List exposure_sheet rows
+      description: Returns the rows of the partition whose clustering key starts with episode_id, sequence_id.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Page size.
+        - name: pageState
+          in: query
+          schema:
+            type: string
+          description: The nextPageState of the previous page. Use it with the same path and limit.
+      responses:
+        "200":
+          description: One page of rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExposureSheetList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /exposure_sheet/{project_id}/{episode_id}/{sequence_id}/{scene_id}:
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        description: Identifier of the project the row belongs to (project.project_id).
+        schema:
+          type: string
+        example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -1837,9 +2379,9 @@ paths:
     get:
       tags:
         - Production Hierarchy
-      operationId: listExposureSheetBySequenceIdAndSceneId
+      operationId: listExposureSheetByEpisodeIdAndSequenceIdAndSceneId
       summary: List exposure_sheet rows
-      description: Returns the rows of the partition whose clustering key starts with sequence_id, scene_id.
+      description: Returns the rows of the partition whose clustering key starts with episode_id, sequence_id, scene_id.
       parameters:
         - name: limit
           in: query
@@ -1867,7 +2409,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /exposure_sheet/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /exposure_sheet/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -1876,6 +2418,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -2670,7 +3219,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /audio_ref/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /audio_ref/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -2679,6 +3228,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -2733,7 +3289,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /audio_ref/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{audio_ref_id}:
+  /audio_ref/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{audio_ref_id}:
     parameters:
       - name: project_id
         in: path
@@ -2742,6 +3298,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -2928,7 +3491,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /dialog/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /dialog/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -2937,6 +3500,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -2991,7 +3561,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /dialog/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{dialog_id}:
+  /dialog/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{dialog_id}:
     parameters:
       - name: project_id
         in: path
@@ -3000,6 +3570,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3186,7 +3763,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /note/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /note/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -3195,6 +3772,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3249,7 +3833,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /note/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{note_id}:
+  /note/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{note_id}:
     parameters:
       - name: project_id
         in: path
@@ -3258,6 +3842,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3444,7 +4035,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /camera/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /camera/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -3453,6 +4044,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3507,7 +4105,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /camera/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{camera_id}:
+  /camera/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{camera_id}:
     parameters:
       - name: project_id
         in: path
@@ -3516,6 +4114,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3702,7 +4307,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /camera_move/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /camera_move/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -3711,6 +4316,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3765,7 +4377,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /camera_move/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{camera_move_id}:
+  /camera_move/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{camera_move_id}:
     parameters:
       - name: project_id
         in: path
@@ -3774,6 +4386,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -3960,7 +4579,7 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /keyframe/{project_id}/{sequence_id}/{scene_id}/{shot_id}:
+  /keyframe/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}:
     parameters:
       - name: project_id
         in: path
@@ -3969,6 +4588,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -4023,7 +4649,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /keyframe/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{keyframe_id}:
+  /keyframe/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{keyframe_id}:
     parameters:
       - name: project_id
         in: path
@@ -4032,6 +4658,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -5648,7 +6281,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /review_by_frame/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}:
+  /review_by_frame/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}:
     parameters:
       - name: project_id
         in: path
@@ -5657,6 +6290,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -5719,7 +6359,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/Unavailable"
-  /review_by_frame/{project_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}/{review_id}:
+  /review_by_frame/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}/{frame_number}/{review_id}:
     parameters:
       - name: project_id
         in: path
@@ -5728,6 +6368,13 @@ paths:
         schema:
           type: string
         example: demo
+      - name: episode_id
+        in: path
+        required: true
+        description: Identifier of the episode the row belongs to.
+        schema:
+          type: string
+        example: EP01
       - name: sequence_id
         in: path
         required: true
@@ -6385,28 +7032,28 @@ components:
           example: /api/v1/shot/{project_id}/{sequence_id}/{scene_id}/{shot_id}
     Production:
       type: object
-      description: Holds the production hierarchy at its top level. A production is one or more sequences, so the table has one row per sequence, partitioned by project. Reading one partition returns all sequences of a project in order.
+      description: Holds the production hierarchy at its top level. A production is one or more episodes, so the table has one row per episode, partitioned by project. Reading one partition returns all episodes of a project in order.
       required:
         - project_id
-        - sequence_id
+        - episode_id
       properties:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
-        sequence_id:
+        episode_id:
           type: string
-          description: Identifier of a sequence in the production. The table holds one row per sequence.
+          description: Identifier of an episode in the production. The table holds one row per episode.
         title:
           type: string
-          description: Title of the sequence.
+          description: Title of the episode.
           nullable: true
         description:
           type: string
-          description: Description of the sequence.
+          description: Description of the episode.
           nullable: true
       example:
         project_id: demo
-        sequence_id: SQ010
+        episode_id: EP01
         title: Opening
         description: Example description.
     ProductionList:
@@ -6438,21 +7085,21 @@ components:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
           nullable: true
-        sequence_id:
+        episode_id:
           type: string
-          description: Identifier of a sequence in the production. The table holds one row per sequence.
+          description: Identifier of an episode in the production. The table holds one row per episode.
           nullable: true
         title:
           type: string
-          description: Title of the sequence.
+          description: Title of the episode.
           nullable: true
         description:
           type: string
-          description: Description of the sequence.
+          description: Description of the episode.
           nullable: true
       example:
         project_id: demo
-        sequence_id: SQ010
+        episode_id: EP01
         title: Opening
         description: Example description.
     ProductionPatch:
@@ -6464,20 +7111,131 @@ components:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
           nullable: true
-        sequence_id:
+        episode_id:
           type: string
-          description: Identifier of a sequence in the production. The table holds one row per sequence.
+          description: Identifier of an episode in the production. The table holds one row per episode.
           nullable: true
         title:
           type: string
-          description: Title of the sequence.
+          description: Title of the episode.
+          nullable: true
+        description:
+          type: string
+          description: Description of the episode.
+          nullable: true
+      example:
+        title: Opening
+        description: Example description.
+    Episode:
+      type: object
+      description: An episode is one or more sequences. The table has one row per sequence, partitioned by project and episode, so one query returns all sequences of an episode.
+      required:
+        - project_id
+        - episode_id
+        - sequence_id
+      properties:
+        project_id:
+          type: string
+          description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+        sequence_id:
+          type: string
+          description: Identifier of a sequence in the episode. The table holds one row per sequence.
+        episode_url:
+          type: string
+          description: "URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows. (static column: shared by all rows of the partition)"
           nullable: true
         description:
           type: string
           description: Description of the sequence.
           nullable: true
       example:
-        title: Opening
+        project_id: demo
+        episode_id: EP01
+        sequence_id: SQ010
+        episode_url: example
+        description: Example description.
+    EpisodeList:
+      type: object
+      required:
+        - items
+        - count
+        - nextPageState
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+        count:
+          type: integer
+          description: Number of rows in this page.
+        nextPageState:
+          type: string
+          nullable: true
+          description: Send as the pageState query parameter to get the next page. null when there are no more rows.
+    EpisodeInput:
+      type: object
+      additionalProperties: false
+      required:
+        - project_id
+        - episode_id
+      description: Body for creating a episode row. Every key column is required (the clustering key columns may be left out only when setting static columns); a column left out is null. A body with the partition key and only static columns sets the static columns of the partition instead of creating a row.
+      properties:
+        project_id:
+          type: string
+          description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+          nullable: true
+        sequence_id:
+          type: string
+          description: Identifier of a sequence in the episode. The table holds one row per sequence.
+          nullable: true
+        episode_url:
+          type: string
+          description: "URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
+        description:
+          type: string
+          description: Description of the sequence.
+          nullable: true
+      example:
+        project_id: demo
+        episode_id: EP01
+        sequence_id: SQ010
+        episode_url: example
+        description: Example description.
+    EpisodePatch:
+      type: object
+      additionalProperties: false
+      description: Body for updating a episode row. Only the columns given are changed (PATCH); with PUT the other non-key columns are set to null. Key columns may be given, and must match the URL.
+      properties:
+        project_id:
+          type: string
+          description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+          nullable: true
+        sequence_id:
+          type: string
+          description: Identifier of a sequence in the episode. The table holds one row per sequence.
+          nullable: true
+        episode_url:
+          type: string
+          description: "URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
+        description:
+          type: string
+          description: Description of the sequence.
+          nullable: true
+      example:
+        episode_url: example
         description: Example description.
     Sequence:
       type: object
@@ -6496,6 +7254,10 @@ components:
         scene_id:
           type: string
           description: Identifier of a scene in the sequence. The table holds one row per scene.
+        sequence_url:
+          type: string
+          description: "URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the scene.
@@ -6504,6 +7266,7 @@ components:
         project_id: demo
         sequence_id: SQ010
         scene_id: SC010
+        sequence_url: example
         description: Example description.
     SequenceList:
       type: object
@@ -6529,7 +7292,7 @@ components:
       required:
         - project_id
         - sequence_id
-      description: Body for creating a sequence row. Every key column is required (the clustering key columns may be left out only when setting static columns); a column left out is null.
+      description: Body for creating a sequence row. Every key column is required (the clustering key columns may be left out only when setting static columns); a column left out is null. A body with the partition key and only static columns sets the static columns of the partition instead of creating a row.
       properties:
         project_id:
           type: string
@@ -6543,6 +7306,10 @@ components:
           type: string
           description: Identifier of a scene in the sequence. The table holds one row per scene.
           nullable: true
+        sequence_url:
+          type: string
+          description: "URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the scene.
@@ -6551,6 +7318,7 @@ components:
         project_id: demo
         sequence_id: SQ010
         scene_id: SC010
+        sequence_url: example
         description: Example description.
     SequencePatch:
       type: object
@@ -6569,17 +7337,23 @@ components:
           type: string
           description: Identifier of a scene in the sequence. The table holds one row per scene.
           nullable: true
+        sequence_url:
+          type: string
+          description: "URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the scene.
           nullable: true
       example:
+        sequence_url: example
         description: Example description.
     Scene:
       type: object
-      description: A scene is one or more shots. The table has one row per shot, partitioned by project, sequence and scene, so one query returns all shots of a scene.
+      description: A scene is one or more shots. The table has one row per shot, partitioned by project, episode, sequence and scene, so one query returns all shots of a scene.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -6587,6 +7361,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -6596,15 +7373,21 @@ components:
         shot_id:
           type: string
           description: Identifier of a shot in the scene. The table holds one row per shot.
+        scene_url:
+          type: string
+          description: "URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the shot.
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
+        scene_url: example
         description: Example description.
     SceneList:
       type: object
@@ -6629,13 +7412,18 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
-      description: Body for creating a scene row. Every key column is required (the clustering key columns may be left out only when setting static columns); a column left out is null.
+      description: Body for creating a scene row. Every key column is required (the clustering key columns may be left out only when setting static columns); a column left out is null. A body with the partition key and only static columns sets the static columns of the partition instead of creating a row.
       properties:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -6649,15 +7437,21 @@ components:
           type: string
           description: Identifier of a shot in the scene. The table holds one row per shot.
           nullable: true
+        scene_url:
+          type: string
+          description: "URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the shot.
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
+        scene_url: example
         description: Example description.
     ScenePatch:
       type: object
@@ -6668,6 +7462,10 @@ components:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
           nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+          nullable: true
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -6680,17 +7478,23 @@ components:
           type: string
           description: Identifier of a shot in the scene. The table holds one row per shot.
           nullable: true
+        scene_url:
+          type: string
+          description: "URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows. (static column: shared by all rows of the partition)"
+          nullable: true
         description:
           type: string
           description: Description of the shot.
           nullable: true
       example:
+        scene_url: example
         description: Example description.
     Shot:
       type: object
       description: "Holds the attributes of a single shot: its frame rate and its first and last frame. There is one row per shot, found by the full shot key."
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -6698,6 +7502,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -6707,6 +7514,10 @@ components:
         shot_id:
           type: string
           description: Identifier of the shot. The table holds one row per shot.
+        shot_url:
+          type: string
+          description: URL of the shot in an asset management tool.
+          nullable: true
         description:
           type: string
           description: Description of the shot.
@@ -6728,9 +7539,11 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
+        shot_url: example
         description: Example description.
         frame_rate: 24
         start_frame: 1
@@ -6758,6 +7571,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -6766,6 +7580,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -6778,6 +7596,10 @@ components:
         shot_id:
           type: string
           description: Identifier of the shot. The table holds one row per shot.
+          nullable: true
+        shot_url:
+          type: string
+          description: URL of the shot in an asset management tool.
           nullable: true
         description:
           type: string
@@ -6800,9 +7622,11 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
+        shot_url: example
         description: Example description.
         frame_rate: 24
         start_frame: 1
@@ -6816,6 +7640,10 @@ components:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
           nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+          nullable: true
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -6827,6 +7655,10 @@ components:
         shot_id:
           type: string
           description: Identifier of the shot. The table holds one row per shot.
+          nullable: true
+        shot_url:
+          type: string
+          description: URL of the shot in an asset management tool.
           nullable: true
         description:
           type: string
@@ -6848,13 +7680,14 @@ components:
           description: Last frame number of the shot.
           nullable: true
       example:
+        shot_url: example
         description: Example description.
-        frame_rate: 24
     Frame:
       type: object
       description: A shot is a list of frames. The table has one row per layer of each frame, partitioned by shot and ordered by frame number and then layer. It references audio, dialog and notes attached to the frame.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -6864,6 +7697,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -6880,6 +7716,10 @@ components:
         layer_id:
           type: string
           description: Layer the row belongs to (layer.layer_id). A frame has one row per layer.
+        frame_url:
+          type: string
+          description: URL of the frame in an asset management tool. Each layer row of a frame holds its own copy.
+          nullable: true
         audio_ref:
           type: string
           description: Identifier of the audio reference attached to the frame (audio_ref.audio_ref_id).
@@ -6898,11 +7738,13 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
         frame_number: 1
         layer_id: L1
+        frame_url: example
         audio_ref: AUDIO1
         dialog_ref: DIALOG1
         note_ref: NOTE1
@@ -6930,6 +7772,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -6938,6 +7781,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -6959,6 +7806,10 @@ components:
         layer_id:
           type: string
           description: Layer the row belongs to (layer.layer_id). A frame has one row per layer.
+          nullable: true
+        frame_url:
+          type: string
+          description: URL of the frame in an asset management tool. Each layer row of a frame holds its own copy.
           nullable: true
         audio_ref:
           type: string
@@ -6978,11 +7829,13 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
         frame_number: 1
         layer_id: L1
+        frame_url: example
         audio_ref: AUDIO1
         dialog_ref: DIALOG1
         note_ref: NOTE1
@@ -6995,6 +7848,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7017,6 +7874,10 @@ components:
           type: string
           description: Layer the row belongs to (layer.layer_id). A frame has one row per layer.
           nullable: true
+        frame_url:
+          type: string
+          description: URL of the frame in an asset management tool. Each layer row of a frame holds its own copy.
+          nullable: true
         audio_ref:
           type: string
           description: Identifier of the audio reference attached to the frame (audio_ref.audio_ref_id).
@@ -7034,13 +7895,14 @@ components:
           description: Description of this layer of the frame.
           nullable: true
       example:
+        frame_url: example
         audio_ref: AUDIO1
-        dialog_ref: DIALOG1
     Layer:
       type: object
       description: Layers available to a shot, one row per layer, partitioned by shot. A layer can use an asset.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7049,6 +7911,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -7088,6 +7953,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7121,6 +7987,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7129,6 +7996,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7173,6 +8044,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7191,6 +8063,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7241,6 +8117,7 @@ components:
       description: Exposure sheet of a shot, held as references to an XML file and an SVG file. There is one row per shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7248,6 +8125,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -7271,6 +8151,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7306,6 +8187,10 @@ components:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
           nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
+          nullable: true
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -7332,6 +8217,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7346,6 +8232,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7726,6 +8616,7 @@ components:
       description: Audio attached to frames of a shot. Each row names an audio track and the range of frames it covers. Partitioned by shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7734,6 +8625,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -7766,6 +8660,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7797,6 +8692,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7805,6 +8701,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7842,6 +8742,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7858,6 +8759,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7901,6 +8806,7 @@ components:
       description: Dialog attached to frames of a shot, held as a phoneme. Partitioned by shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7909,6 +8815,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -7931,6 +8840,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -7960,6 +8870,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -7968,6 +8879,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -7995,6 +8910,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8009,6 +8925,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8042,6 +8962,7 @@ components:
       description: Notes attached to frames of a shot. A note holds only text. Partitioned by shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8050,6 +8971,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -8068,6 +8992,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8096,6 +9021,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8104,6 +9030,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8127,6 +9057,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8140,6 +9071,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8168,6 +9103,7 @@ components:
       description: A camera of a shot. A camera is a collection of camera moves and keyframes, held as ordered lists of their identifiers. Partitioned by shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8176,6 +9112,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -8214,6 +9153,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8248,6 +9188,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8256,6 +9197,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8299,6 +9244,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8318,6 +9264,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8367,6 +9317,7 @@ components:
       description: Camera moves of a shot, such as a pan or zoom, with the frame range they cover. Partitioned by shot.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8375,6 +9326,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -8407,6 +9361,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8438,6 +9393,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8446,6 +9402,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8483,6 +9443,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8499,6 +9460,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8542,6 +9507,7 @@ components:
       description: "Camera keyframes of a shot: the camera position, zoom and focal length at a frame number, and how values are interpolated to the next keyframe. Partitioned by shot."
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8550,6 +9516,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -8606,6 +9575,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8642,6 +9612,7 @@ components:
       additionalProperties: false
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -8650,6 +9621,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8711,6 +9686,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8732,6 +9708,10 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+          nullable: true
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
           nullable: true
         sequence_id:
           type: string
@@ -8796,7 +9776,7 @@ components:
         x: 0
     Timeline:
       type: object
-      description: A timeline is an ordered sequence of frames. The table has one row per entry, partitioned by timeline and ordered by position. Each entry points at a frame by its sequence, scene, shot and frame number.
+      description: A timeline is an ordered sequence of frames. The table has one row per entry, partitioned by timeline and ordered by position. Each entry points at a frame by its episode, sequence, scene, shot and frame number.
       required:
         - project_id
         - timeline_id
@@ -8819,6 +9799,10 @@ components:
         description:
           type: string
           description: "Description of the timeline. Stored once per timeline and shared by all its entries. (static column: shared by all rows of the partition)"
+          nullable: true
+        episode_id:
+          type: string
+          description: Episode of the frame this entry points at (frame.episode_id).
           nullable: true
         sequence_id:
           type: string
@@ -8843,6 +9827,7 @@ components:
         position: 10
         name: Example
         description: Example description.
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8894,6 +9879,10 @@ components:
           type: string
           description: "Description of the timeline. Stored once per timeline and shared by all its entries. (static column: shared by all rows of the partition)"
           nullable: true
+        episode_id:
+          type: string
+          description: Episode of the frame this entry points at (frame.episode_id).
+          nullable: true
         sequence_id:
           type: string
           description: Sequence of the frame this entry points at (frame.sequence_id).
@@ -8917,6 +9906,7 @@ components:
         position: 10
         name: Example
         description: Example description.
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -8946,6 +9936,10 @@ components:
         description:
           type: string
           description: "Description of the timeline. Stored once per timeline and shared by all its entries. (static column: shared by all rows of the partition)"
+          nullable: true
+        episode_id:
+          type: string
+          description: Episode of the frame this entry points at (frame.episode_id).
           nullable: true
         sequence_id:
           type: string
@@ -9426,6 +10420,10 @@ components:
         review_id:
           type: string
           description: Unique identifier of the review within the project.
+        episode_id:
+          type: string
+          description: Episode of the reviewed frame (frame.episode_id).
+          nullable: true
         sequence_id:
           type: string
           description: Sequence of the reviewed frame (frame.sequence_id).
@@ -9464,6 +10462,7 @@ components:
       example:
         project_id: demo
         review_id: REVIEW1
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -9506,6 +10505,10 @@ components:
           type: string
           description: Unique identifier of the review within the project.
           nullable: true
+        episode_id:
+          type: string
+          description: Episode of the reviewed frame (frame.episode_id).
+          nullable: true
         sequence_id:
           type: string
           description: Sequence of the reviewed frame (frame.sequence_id).
@@ -9544,6 +10547,7 @@ components:
       example:
         project_id: demo
         review_id: REVIEW1
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010
@@ -9565,6 +10569,10 @@ components:
         review_id:
           type: string
           description: Unique identifier of the review within the project.
+          nullable: true
+        episode_id:
+          type: string
+          description: Episode of the reviewed frame (frame.episode_id).
           nullable: true
         sequence_id:
           type: string
@@ -9602,8 +10610,8 @@ components:
           description: Description of the review.
           nullable: true
       example:
+        episode_id: EP01
         sequence_id: SQ010
-        scene_id: SC010
     Comment:
       type: object
       description: Text of comments on reviews. A review refers to its comments through review.comment_refs.
@@ -9690,6 +10698,7 @@ components:
       description: Lookup table that lists the reviews of a frame, one row per review, partitioned by frame. It duplicates data from review and must be kept in sync with it.
       required:
         - project_id
+        - episode_id
         - sequence_id
         - scene_id
         - shot_id
@@ -9699,6 +10708,9 @@ components:
         project_id:
           type: string
           description: Identifier of the project the row belongs to (project.project_id).
+        episode_id:
+          type: string
+          description: Identifier of the episode the row belongs to.
         sequence_id:
           type: string
           description: Identifier of the sequence the row belongs to.
@@ -9725,6 +10737,7 @@ components:
           nullable: true
       example:
         project_id: demo
+        episode_id: EP01
         sequence_id: SQ010
         scene_id: SC010
         shot_id: SH010

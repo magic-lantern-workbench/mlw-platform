@@ -4,7 +4,7 @@ digraph G { graph [rankdir=LR, fontname="Helvetica", nodesep=0.45, ranksep=0.7, 
  review_by_frame [label="review_by_frame\n(lookup)", fillcolor="#F8DCDC", color="#9A3434", style="rounded,filled,dashed"]
  frame [label="frame", fillcolor="#DCE9F7", color="#2F5C8F"]
  user [label="user", fillcolor="#EBE0F3", color="#6B3F8C"]
- review -> frame [label="sequence_id, scene_id,\nshot_id, frame_number"]
+ review -> frame [label="episode_id, sequence_id,\nscene_id, shot_id, frame_number"]
  review -> user [label="reviewer"]
  review -> comment [label="comment_refs\n(list)"]
  review_by_frame -> review [label="review_id\n(kept in sync)", style=dashed]

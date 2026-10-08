@@ -1,11 +1,12 @@
 -- Reviews of frames, one row per review, partitioned by project.
--- A frame has no single id (it is identified by sequence, scene, shot and
+-- A frame has no single id (it is identified by episode, sequence, scene, shot and
 -- frame number), so the frame columns together stand in for frame_id and point
 -- at mlw.frame; Cassandra does not enforce the reference.
 -- reviewer refers to mlw.user.user_id; comment_refs is an ordered list of mlw.comment.comment_id values.
 CREATE TABLE IF NOT EXISTS mlw.review (
   project_id   text,
   review_id    text,
+  episode_id   text,
   sequence_id  text,
   scene_id     text,
   shot_id      text,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS mlw.comment (
 -- update both when status changes).
 CREATE TABLE IF NOT EXISTS mlw.review_by_frame (
   project_id   text,
+  episode_id   text,
   sequence_id  text,
   scene_id     text,
   shot_id      text,
@@ -37,5 +39,5 @@ CREATE TABLE IF NOT EXISTS mlw.review_by_frame (
   review_id    text,
   reviewer     text,
   status       text,
-  PRIMARY KEY ((project_id, sequence_id, scene_id, shot_id, frame_number), review_id)
+  PRIMARY KEY ((project_id, episode_id, sequence_id, scene_id, shot_id, frame_number), review_id)
 );

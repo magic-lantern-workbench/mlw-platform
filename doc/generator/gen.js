@@ -16,8 +16,8 @@ if (!OUT || !DIA) { console.error('usage: node gen.js <output.docx> <diagram-png
 const { describe, PURPOSE } = require('./descriptions');
 
 const GROUPS = [
-  ['Production Hierarchy', 'Tables that describe the structure of a production, from sequences down to frames and layers.',
-    ['production', 'sequence', 'scene', 'shot', 'frame', 'layer', 'exposure_sheet']],
+  ['Production Hierarchy', 'Tables that describe the structure of a production, from episodes down to frames and layers.',
+    ['production', 'episode', 'sequence', 'scene', 'shot', 'frame', 'layer', 'exposure_sheet']],
   ['Assets, Audio and Notes', 'Tables for assets and the audio, dialog and notes attached to frames.',
     ['asset', 'track', 'audio_tracks', 'audio_ref', 'dialog', 'note']],
   ['Camera and Timeline', 'Tables for camera moves, keyframes, cameras and timelines.',
@@ -129,10 +129,10 @@ for (const t of [
   'Colours group the tables: blue for the production hierarchy, green for assets and audio, orange for camera and timeline, purple for users and projects, red for review and grey for version control.',
 ]) children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 60 }, children: [new TextRun(t)] }));
 const figs = [
-  ['2.1 Production hierarchy', 'overview.png', 'A project contains a production of one or more sequences. Each sequence has one or more scenes, each scene one or more shots, and each shot a list of frames. Each table in the chain is partitioned by its parent, so all the children of a parent are read together.'],
+  ['2.1 Production hierarchy', 'overview.png', 'A project contains a production of one or more episodes. Each episode has one or more sequences, each sequence has one or more scenes, each scene one or more shots, and each shot a list of frames. Each table in the chain is partitioned by its parent, so all the children of a parent are read together.'],
   ['2.2 Shot contents', 'frame.png', 'Layers, audio references, dialog and notes belong to a shot. A frame refers to them by identifier: layer_id for its layer and audio_ref, dialog_ref and note_ref for the rest. A layer can use an asset, and an audio reference names an audio track. A shot also has one exposure sheet.'],
   ['2.3 Audio tracks', 'audio.png', 'Audio tracks are shared across projects. An audio reference in a shot names a track, and a group of audio tracks (audio_tracks) lists tracks in order. The same track can appear in many groups and many shots.'],
-  ['2.4 Camera and timeline', 'camera.png', 'A shot has cameras. A camera refers to its camera moves and keyframes through ordered lists of identifiers. A timeline is a separate ordered list of frames: each entry points at a frame by sequence, scene, shot and frame number.'],
+  ['2.4 Camera and timeline', 'camera.png', 'A shot has cameras. A camera refers to its camera moves and keyframes through ordered lists of identifiers. A timeline is a separate ordered list of frames: each entry points at a frame by episode, sequence, scene, shot and frame number.'],
   ['2.5 Users, projects and version control', 'users.png', 'A project is owned by a user and has members, listed in project_member and, from the user side, in project_by_user. user_by_email finds a user by email address. A version control belongs to a project and contains revisions, each made by a user.'],
   ['2.6 Review', 'review.png', 'A review points at a frame, names a reviewer (a user) and refers to a list of comments. review_by_frame lists the reviews of a frame and is kept in sync with review.'],
 ];

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS mlw.timeline (
   position     int,
   name         text static,
   description  text static,
+  episode_id   text,
   sequence_id  text,
   scene_id     text,
   shot_id      text,

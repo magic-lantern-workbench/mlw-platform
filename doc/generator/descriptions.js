@@ -2,6 +2,7 @@
 
 const GEN = {
   project_id: 'Identifier of the project the row belongs to (project.project_id).',
+  episode_id: 'Identifier of the episode the row belongs to.',
   sequence_id: 'Identifier of the sequence the row belongs to.',
   scene_id: 'Identifier of the scene the row belongs to.',
   shot_id: 'Identifier of the shot the row belongs to.',
@@ -13,20 +14,28 @@ const GEN = {
 };
 const SPEC = {
   production: {
-    sequence_id: 'Identifier of a sequence in the production. The table holds one row per sequence.',
-    title: 'Title of the sequence.',
+    episode_id: 'Identifier of an episode in the production. The table holds one row per episode.',
+    title: 'Title of the episode.',
+    description: 'Description of the episode.',
+  },
+  episode: {
+    sequence_id: 'Identifier of a sequence in the episode. The table holds one row per sequence.',
+    episode_url: 'URL of the episode in an asset management tool. Static: stored once per episode and shared by its rows.',
     description: 'Description of the sequence.',
   },
   sequence: {
     scene_id: 'Identifier of a scene in the sequence. The table holds one row per scene.',
+    sequence_url: 'URL of the sequence in an asset management tool. Static: stored once per sequence and shared by its rows.',
     description: 'Description of the scene.',
   },
   scene: {
     shot_id: 'Identifier of a shot in the scene. The table holds one row per shot.',
+    scene_url: 'URL of the scene in an asset management tool. Static: stored once per scene and shared by its rows.',
     description: 'Description of the shot.',
   },
   shot: {
     shot_id: 'Identifier of the shot. The table holds one row per shot.',
+    shot_url: 'URL of the shot in an asset management tool.',
     description: 'Description of the shot.',
     frame_rate: 'Frame rate of the shot in frames per second, for example 24 or 23.976.',
     start_frame: 'First frame number of the shot.',
@@ -34,6 +43,7 @@ const SPEC = {
   },
   frame: {
     layer_id: 'Layer the row belongs to (layer.layer_id). A frame has one row per layer.',
+    frame_url: 'URL of the frame in an asset management tool. Each layer row of a frame holds its own copy.',
     audio_ref: 'Identifier of the audio reference attached to the frame (audio_ref.audio_ref_id).',
     dialog_ref: 'Identifier of the dialog attached to the frame (dialog.dialog_id).',
     note_ref: 'Identifier of the note attached to the frame (note.note_id).',
@@ -82,6 +92,7 @@ const SPEC = {
     position: 'Position of the entry in the timeline. Entries are read in ascending order. Use spaced values (10, 20, 30) to leave room for insertions.',
     name: 'Name of the timeline. Stored once per timeline and shared by all its entries.',
     description: 'Description of the timeline. Stored once per timeline and shared by all its entries.',
+    episode_id: 'Episode of the frame this entry points at (frame.episode_id).',
     sequence_id: 'Sequence of the frame this entry points at (frame.sequence_id).',
     scene_id: 'Scene of the frame this entry points at (frame.scene_id).',
     shot_id: 'Shot of the frame this entry points at (frame.shot_id).',
@@ -147,6 +158,7 @@ const SPEC = {
   },
   review: {
     review_id: 'Unique identifier of the review within the project.',
+    episode_id: 'Episode of the reviewed frame (frame.episode_id).',
     sequence_id: 'Sequence of the reviewed frame (frame.sequence_id).',
     scene_id: 'Scene of the reviewed frame (frame.scene_id).',
     shot_id: 'Shot of the reviewed frame (frame.shot_id).',
@@ -202,9 +214,10 @@ function describe(table, col) {
 }
 
 const PURPOSE = {
-  production: 'Holds the production hierarchy at its top level. A production is one or more sequences, so the table has one row per sequence, partitioned by project. Reading one partition returns all sequences of a project in order.',
+  production: 'Holds the production hierarchy at its top level. A production is one or more episodes, so the table has one row per episode, partitioned by project. Reading one partition returns all episodes of a project in order.',
+  episode: 'An episode is one or more sequences. The table has one row per sequence, partitioned by project and episode, so one query returns all sequences of an episode.',
   sequence: 'A sequence is one or more scenes. The table has one row per scene, partitioned by project and sequence, so one query returns all scenes of a sequence.',
-  scene: 'A scene is one or more shots. The table has one row per shot, partitioned by project, sequence and scene, so one query returns all shots of a scene.',
+  scene: 'A scene is one or more shots. The table has one row per shot, partitioned by project, episode, sequence and scene, so one query returns all shots of a scene.',
   shot: 'Holds the attributes of a single shot: its frame rate and its first and last frame. There is one row per shot, found by the full shot key.',
   frame: 'A shot is a list of frames. The table has one row per layer of each frame, partitioned by shot and ordered by frame number and then layer. It references audio, dialog and notes attached to the frame.',
   layer: 'Layers available to a shot, one row per layer, partitioned by shot. A layer can use an asset.',
@@ -213,7 +226,7 @@ const PURPOSE = {
   audio_ref: 'Audio attached to frames of a shot. Each row names an audio track and the range of frames it covers. Partitioned by shot.',
   dialog: 'Dialog attached to frames of a shot, held as a phoneme. Partitioned by shot.',
   note: 'Notes attached to frames of a shot. A note holds only text. Partitioned by shot.',
-  timeline: 'A timeline is an ordered sequence of frames. The table has one row per entry, partitioned by timeline and ordered by position. Each entry points at a frame by its sequence, scene, shot and frame number.',
+  timeline: 'A timeline is an ordered sequence of frames. The table has one row per entry, partitioned by timeline and ordered by position. Each entry points at a frame by its episode, sequence, scene, shot and frame number.',
   camera_move: 'Camera moves of a shot, such as a pan or zoom, with the frame range they cover. Partitioned by shot.',
   keyframe: 'Camera keyframes of a shot: the camera position, zoom and focal length at a frame number, and how values are interpolated to the next keyframe. Partitioned by shot.',
   camera: 'A camera of a shot. A camera is a collection of camera moves and keyframes, held as ordered lists of their identifiers. Partitioned by shot.',

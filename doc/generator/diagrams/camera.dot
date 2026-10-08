@@ -8,5 +8,5 @@ digraph G { graph [rankdir=LR, fontname="Helvetica", nodesep=0.45, ranksep=0.7, 
  shot -> camera [label="1..*", dir=back, arrowtail=diamond, arrowhead=none]
  camera -> camera_move [label="move_refs\n(list)"]
  camera -> keyframe [label="keyframe_refs\n(list)"]
- timeline -> frame [label="sequence_id, scene_id,\nshot_id, frame_number\n1..*"]
+ timeline -> frame [label="episode_id, sequence_id,\nscene_id, shot_id, frame_number\n1..*"]
 }

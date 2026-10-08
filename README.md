@@ -91,9 +91,9 @@ Cassandra on its own.
 
 | File | Contents |
 | ---- | -------- |
-| `001_production.cql` | `mlw` keyspace and `production` table (one row per sequence, partitioned by `project_id`) |
+| `001_production.cql` | `mlw` keyspace and `production` table (one row per episode, partitioned by `project_id`) |
 | `002_exposure_sheet.cql` | `exposure_sheet` table holding the URLs of an XML file and an SVG file per shot |
-| `003_hierarchy.cql` | `sequence` (rows are scenes), `scene` (rows are shots), `shot` (one row per shot, with `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame) tables |
+| `003_hierarchy.cql` | `episode` (rows are sequences, with static `episode_url`), `sequence` (rows are scenes, with static `sequence_url`), `scene` (rows are shots, with static `scene_url`), `shot` (one row per shot, with `shot_url`, `frame_rate`, `start_frame`, `end_frame`) and `frame` (one row per layer of each frame, with `frame_url`) tables |
 | `004_layer.cql` | `layer` table (one row per layer, partitioned by shot, with `name`, `type`, `z_order`, `asset_ref`, `visibility`) |
 | `005_asset.cql` | `asset` table (`name`, `category`, `version`, `source_url`, `description`) |
 | `006_user.cql` | `user` table (`username`, `email`, `display_name`, `role`, `created_at`, `description`) and `user_by_email` lookup table |

@@ -169,17 +169,18 @@ code(`{
       "name": "shot",
       "columns": [
         { "name": "project_id",  "type": "text",  "kind": "partition_key" },
+        { "name": "episode_id",  "type": "text",  "kind": "partition_key" },
         { "name": "sequence_id", "type": "text",  "kind": "partition_key" },
         { "name": "scene_id",    "type": "text",  "kind": "partition_key" },
         { "name": "shot_id",     "type": "text",  "kind": "partition_key" },
         { "name": "end_frame",   "type": "int",   "kind": "regular" },
         { "name": "frame_rate",  "type": "float", "kind": "regular" }
       ],
-      "partitionKey": ["project_id", "sequence_id", "scene_id", "shot_id"],
+      "partitionKey": ["project_id", "episode_id", "sequence_id", "scene_id", "shot_id"],
       "clusteringKey": [],
       "staticColumns": [],
       "readOnly": false,
-      "path": "/api/v1/shot/{project_id}/{sequence_id}/{scene_id}/{shot_id}"
+      "path": "/api/v1/shot/{project_id}/{episode_id}/{sequence_id}/{scene_id}/{shot_id}"
     }
   ]
 }`, 'Response 200 (shortened)');
@@ -216,13 +217,13 @@ code(`{
   "items": [
     {
       "project_id": "demo",
-      "sequence_id": "SQ010",
+      "episode_id": "EP01",
       "title": "Opening",
       "description": null
     },
     {
       "project_id": "demo",
-      "sequence_id": "SQ020",
+      "episode_id": "EP02",
       "title": "Chase",
       "description": null
     }
@@ -248,14 +249,15 @@ para('POST /api/v1/{table} creates a row from a JSON object. The body must conta
 para('If a row with the same key already exists the response is 409 and nothing is changed. The response has the status 201, a Location header with the path of the new row, and the stored row as the body.');
 code(`curl -X POST ${BASE}/api/v1/layer \\
   -H 'Content-Type: application/json' \\
-  -d '{"project_id":"demo","sequence_id":"SQ010","scene_id":"SC010",
-       "shot_id":"SH010","layer_id":"L1","name":"Background",
+  -d '{"project_id":"demo","episode_id":"EP01","sequence_id":"SQ010",
+       "scene_id":"SC010","shot_id":"SH010","layer_id":"L1","name":"Background",
        "z_order":1,"visibility":true}'`, 'Request');
 code(`HTTP/1.1 201 Created
-Location: /api/v1/layer/demo/SQ010/SC010/SH010/L1
+Location: /api/v1/layer/demo/EP01/SQ010/SC010/SH010/L1
 
 {
   "project_id": "demo",
+  "episode_id": "EP01",
   "sequence_id": "SQ010",
   "scene_id": "SC010",
   "shot_id": "SH010",
@@ -268,7 +270,7 @@ Location: /api/v1/layer/demo/SQ010/SC010/SH010/L1
   "description": null
 }`, 'Response');
 H3('Static columns');
-para('Some tables have static columns, which are stored once for a whole partition and shared by its rows (timeline: name and description; audio_tracks: description). To set them, send a body that has the partition key and only static columns. This sets the values for the partition and does not create a row; sending it again overwrites them. The response has the status 201.');
+para('Some tables have static columns, which are stored once for a whole partition and shared by its rows (timeline: name and description; audio_tracks: description; episode: episode_url; sequence: sequence_url; scene: scene_url). To set them, send a body that has the partition key and only static columns. This sets the values for the partition and does not create a row; sending it again overwrites them. The response has the status 201.');
 code(`curl -X POST ${BASE}/api/v1/timeline \\
   -d '{"project_id":"demo","timeline_id":"T1","name":"First cut","description":"Rough cut"}'`);
 
@@ -385,26 +387,27 @@ H1('6. Example Session');
 para('The commands below create a small production and read it back. Add the Authorization header if a token is configured.');
 code(`B=${BASE}/api/v1
 
-# a project, with one sequence and one scene
+# a project, with one episode, one sequence and one scene
 curl -X POST $B/project    -d '{"project_id":"demo","name":"Demo","status":"active"}'
-curl -X POST $B/production -d '{"project_id":"demo","sequence_id":"SQ010","title":"Opening"}'
+curl -X POST $B/production -d '{"project_id":"demo","episode_id":"EP01","title":"Opening"}'
+curl -X POST $B/episode    -d '{"project_id":"demo","episode_id":"EP01","sequence_id":"SQ010"}'
 curl -X POST $B/sequence   -d '{"project_id":"demo","sequence_id":"SQ010","scene_id":"SC010"}'
 
 # a shot with its frame rate, and two layers on it
-curl -X POST $B/shot  -d '{"project_id":"demo","sequence_id":"SQ010","scene_id":"SC010",
+curl -X POST $B/shot  -d '{"project_id":"demo","episode_id":"EP01","sequence_id":"SQ010","scene_id":"SC010",
                            "shot_id":"SH010","frame_rate":24,"start_frame":1,"end_frame":48}'
-curl -X POST $B/layer -d '{"project_id":"demo","sequence_id":"SQ010","scene_id":"SC010",
+curl -X POST $B/layer -d '{"project_id":"demo","episode_id":"EP01","sequence_id":"SQ010","scene_id":"SC010",
                            "shot_id":"SH010","layer_id":"BG","name":"Background","z_order":0}'
-curl -X POST $B/layer -d '{"project_id":"demo","sequence_id":"SQ010","scene_id":"SC010",
+curl -X POST $B/layer -d '{"project_id":"demo","episode_id":"EP01","sequence_id":"SQ010","scene_id":"SC010",
                            "shot_id":"SH010","layer_id":"FG","name":"Foreground","z_order":1}'
 
 # read them back
-curl $B/layer/demo/SQ010/SC010/SH010
-curl $B/shot/demo/SQ010/SC010/SH010
+curl $B/layer/demo/EP01/SQ010/SC010/SH010
+curl $B/shot/demo/EP01/SQ010/SC010/SH010
 
 # change and delete
-curl -X PATCH  $B/shot/demo/SQ010/SC010/SH010 -d '{"frame_rate":25}'
-curl -X DELETE $B/layer/demo/SQ010/SC010/SH010/FG`);
+curl -X PATCH  $B/shot/demo/EP01/SQ010/SC010/SH010 -d '{"frame_rate":25}'
+curl -X DELETE $B/layer/demo/EP01/SQ010/SC010/SH010/FG`);
 
 const doc = buildDocument('MLW REST API', 'MLW REST API', children);
 write(doc, OUT);

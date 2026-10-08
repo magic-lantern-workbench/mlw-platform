@@ -44,9 +44,9 @@ func TestCRUD(t *testing.T) {
 	ctx := context.Background()
 	tb := mustTable(t, st, "shot")
 	body := func(rate string) map[string]any {
-		return decode(t, `{"project_id":"itest","sequence_id":"s","scene_id":"c","shot_id":"h","frame_rate":`+rate+`,"start_frame":1,"end_frame":48,"description":"d"}`)
+		return decode(t, `{"project_id":"itest","episode_id":"e","sequence_id":"s","scene_id":"c","shot_id":"h","frame_rate":`+rate+`,"start_frame":1,"end_frame":48,"description":"d"}`)
 	}
-	key := []any{"itest", "s", "c", "h"}
+	key := []any{"itest", "e", "s", "c", "h"}
 	t.Cleanup(func() { st.Delete(ctx, tb, key) })
 
 	if _, err := st.Create(ctx, tb, body("24")); err != nil {
@@ -66,7 +66,7 @@ func TestCRUD(t *testing.T) {
 	if row, err = st.Update(ctx, tb, key, decode(t, `{"frame_rate":30}`), true); err != nil || row["frame_rate"] != float32(30) || row["description"] != nil {
 		t.Fatalf("put: %v %v", row, err)
 	}
-	if _, err = st.Update(ctx, tb, []any{"itest", "s", "c", "nope"}, decode(t, `{"frame_rate":1}`), false); !errors.Is(err, ErrNotFound) {
+	if _, err = st.Update(ctx, tb, []any{"itest", "e", "s", "c", "nope"}, decode(t, `{"frame_rate":1}`), false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("update missing: %v", err)
 	}
 	if err = st.Delete(ctx, tb, key); err != nil {
@@ -78,7 +78,7 @@ func TestCRUD(t *testing.T) {
 	if _, err = st.Create(ctx, tb, decode(t, `{"project_id":"itest"}`)); err == nil {
 		t.Fatal("create without the full key should fail")
 	}
-	if _, err = st.Create(ctx, tb, decode(t, `{"project_id":"itest","sequence_id":"s","scene_id":"c","shot_id":"h","bogus":1}`)); err == nil {
+	if _, err = st.Create(ctx, tb, decode(t, `{"project_id":"itest","episode_id":"e","sequence_id":"s","scene_id":"c","shot_id":"h","bogus":1}`)); err == nil {
 		t.Fatal("unknown column should fail")
 	}
 }
@@ -88,17 +88,17 @@ func TestListPaging(t *testing.T) {
 	ctx := context.Background()
 	tb := mustTable(t, st, "scene")
 	for _, id := range []string{"a", "b", "c"} {
-		if _, err := st.Create(ctx, tb, decode(t, `{"project_id":"itest","sequence_id":"s","scene_id":"c","shot_id":"`+id+`"}`)); err != nil {
+		if _, err := st.Create(ctx, tb, decode(t, `{"project_id":"itest","episode_id":"e","sequence_id":"s","scene_id":"c","shot_id":"`+id+`"}`)); err != nil {
 			t.Fatal(err)
 		}
 		id := id
-		t.Cleanup(func() { st.Delete(ctx, tb, []any{"itest", "s", "c", id}) })
+		t.Cleanup(func() { st.Delete(ctx, tb, []any{"itest", "e", "s", "c", id}) })
 	}
-	rows, next, err := st.List(ctx, tb, []any{"itest", "s", "c"}, 2, nil)
+	rows, next, err := st.List(ctx, tb, []any{"itest", "e", "s", "c"}, 2, nil)
 	if err != nil || len(rows) != 2 || len(next) == 0 {
 		t.Fatalf("page 1: %d rows, next %v, %v", len(rows), next, err)
 	}
-	rows, next, err = st.List(ctx, tb, []any{"itest", "s", "c"}, 2, next)
+	rows, next, err = st.List(ctx, tb, []any{"itest", "e", "s", "c"}, 2, next)
 	if err != nil || len(rows) != 1 || len(next) != 0 {
 		t.Fatalf("page 2: %d rows, next %v, %v", len(rows), next, err)
 	}
@@ -183,10 +183,10 @@ func TestReviewByFrame(t *testing.T) {
 	ctx := context.Background()
 	reviews, byFrame := mustTable(t, st, "review"), mustTable(t, st, "review_by_frame")
 	t.Cleanup(func() { st.Delete(ctx, reviews, []any{"itest", "r1"}) })
-	if _, err := st.Create(ctx, reviews, decode(t, `{"project_id":"itest","review_id":"r1","sequence_id":"s","scene_id":"c","shot_id":"h","frame_number":5,"reviewer":"u","status":"pending"}`)); err != nil {
+	if _, err := st.Create(ctx, reviews, decode(t, `{"project_id":"itest","review_id":"r1","episode_id":"e","sequence_id":"s","scene_id":"c","shot_id":"h","frame_number":5,"reviewer":"u","status":"pending"}`)); err != nil {
 		t.Fatal(err)
 	}
-	k := []any{"itest", "s", "c", "h", int32(5), "r1"}
+	k := []any{"itest", "e", "s", "c", "h", int32(5), "r1"}
 	if r, err := st.Get(ctx, byFrame, k); err != nil || r["status"] != "pending" {
 		t.Fatalf("lookup: %v %v", r, err)
 	}
@@ -202,13 +202,13 @@ func TestReviewByFrame(t *testing.T) {
 	if _, err := st.Get(ctx, byFrame, k); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("old frame row still present: %v", err)
 	}
-	if _, err := st.Get(ctx, byFrame, []any{"itest", "s", "c", "h", int32(6), "r1"}); err != nil {
+	if _, err := st.Get(ctx, byFrame, []any{"itest", "e", "s", "c", "h", int32(6), "r1"}); err != nil {
 		t.Fatalf("new frame row: %v", err)
 	}
 	if err := st.Delete(ctx, reviews, []any{"itest", "r1"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.Get(ctx, byFrame, []any{"itest", "s", "c", "h", int32(6), "r1"}); !errors.Is(err, ErrNotFound) {
+	if _, err := st.Get(ctx, byFrame, []any{"itest", "e", "s", "c", "h", int32(6), "r1"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("lookup after delete: %v", err)
 	}
 }

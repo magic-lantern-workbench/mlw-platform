@@ -3,6 +3,7 @@
 -- z_order is the stacking order.
 CREATE TABLE IF NOT EXISTS mlw.layer (
   project_id  text,
+  episode_id  text,
   sequence_id text,
   scene_id    text,
   shot_id     text,
@@ -13,5 +14,5 @@ CREATE TABLE IF NOT EXISTS mlw.layer (
   visibility  boolean,
   asset_ref   text,
   description text,
-  PRIMARY KEY ((project_id, sequence_id, scene_id, shot_id), layer_id)
+  PRIMARY KEY ((project_id, episode_id, sequence_id, scene_id, shot_id), layer_id)
 );

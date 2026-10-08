@@ -78,7 +78,7 @@ function cell(text, width, opts = {}) {
 
 // ---------- example data generated from the schema ----------
 const SAMPLE = {
-  project_id: 'demo', sequence_id: 'SQ010', scene_id: 'SC010', shot_id: 'SH010', layer_id: 'L1',
+  project_id: 'demo', episode_id: 'EP01', sequence_id: 'SQ010', scene_id: 'SC010', shot_id: 'SH010', layer_id: 'L1',
   user_id: 'u1', email: 'ann@example.org', username: 'ann', display_name: 'Ann Artist', role: 'artist',
   name: 'Example', status: 'active', type: 'example', title: 'Opening', description: 'Example description.',
   frame_rate: 24, frame_number: 1, start_frame: 1, end_frame: 48, position: 10, z_order: 1, visibility: true,

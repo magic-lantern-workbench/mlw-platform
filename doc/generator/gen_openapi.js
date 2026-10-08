@@ -13,7 +13,7 @@ if (!OUT) { console.error('usage: node gen_openapi.js <output.yaml>'); process.e
 const tables = parseCql();
 const LOOKUP = { user_by_email: 'user', project_by_user: 'project_member', review_by_frame: 'review' };
 const GROUPS = [
-  ['Production Hierarchy', 'Sequences, scenes, shots, frames and layers.', ['production', 'sequence', 'scene', 'shot', 'frame', 'layer', 'exposure_sheet']],
+  ['Production Hierarchy', 'Episodes, sequences, scenes, shots, frames and layers.', ['production', 'episode', 'sequence', 'scene', 'shot', 'frame', 'layer', 'exposure_sheet']],
   ['Assets, Audio and Notes', 'Assets, audio tracks, dialog and notes.', ['asset', 'track', 'audio_tracks', 'audio_ref', 'dialog', 'note']],
   ['Camera and Timeline', 'Cameras, camera moves, keyframes and timelines.', ['camera', 'camera_move', 'keyframe', 'timeline']],
   ['Users and Projects', 'Users, projects and project membership.', ['user', 'user_by_email', 'project', 'project_member', 'project_by_user']],
