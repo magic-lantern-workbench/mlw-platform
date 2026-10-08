@@ -274,6 +274,23 @@ Notes:
   testing only and logs a warning.
 - Without HTTPS the app logs a warning when `API_TOKEN` is set, because the token travels in clear text.
 
+### Keycloak
+
+The `keycloak` service runs [Keycloak](https://www.keycloak.org) for identity and access management. It is
+not connected to the app yet; it runs alongside it so realms, clients and users can be set up.
+
+- **Local development:** `docker compose up -d keycloak` starts it in `start-dev` mode with an embedded
+  database (kept in the `keycloak_data` volume). The admin console is at http://localhost:8180 and the first
+  admin is `admin` / `admin`.
+- **Production:** with `docker-compose.prod.yml` it runs in production mode against a `keycloak-db` PostgreSQL
+  container. `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD` and `KEYCLOAK_HOSTNAME` (the
+  public URL, for example `https://id.example.org`) must be set in `.env`. Keycloak serves plain HTTP on
+  `${KEYCLOAK_BIND:-127.0.0.1}:${KEYCLOAK_PORT:-8180}` and trusts `X-Forwarded-*` headers, so put a reverse
+  proxy that terminates HTTPS in front of it. The bootstrap admin is only created on the first start; change
+  its password in the admin console.
+
+The image version is `KEYCLOAK_VERSION` (default 26.4.0). See `.env.example` for all settings.
+
 ### Development
 
 ```bash

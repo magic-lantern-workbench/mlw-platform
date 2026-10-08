@@ -43,5 +43,23 @@ services:
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8090}:8080"
 
+  # Keycloak identity and access management (keycloak.org). It is not wired to
+  # the app yet: it runs next to it so realms, clients and users can be set up.
+  # Local dev (override file): start-dev with an embedded H2 database.
+  # Remote (prod file): production mode with a PostgreSQL database.
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.4.0}
+    container_name: mlw-keycloak
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    ports:
+      # 8080 inside the container; 8180 on the host so it does not clash with the app's dev port
+      - "${KEYCLOAK_BIND:-127.0.0.1}:${KEYCLOAK_PORT:-8180}:8080"
+
 volumes:
   cassandra_data:
+  keycloak_data:
