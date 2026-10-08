@@ -134,6 +134,92 @@ func TestStaticColumns(t *testing.T) {
 	}
 }
 
+// episode_url, sequence_url and scene_url are static: set for a whole
+// partition, then read back on every row. shot_url and frame_url are regular.
+func TestURLColumns(t *testing.T) {
+	st := testStore(t)
+	ctx := context.Background()
+	const base = `"project_id":"itest","episode_id":"e","sequence_id":"s","scene_id":"c","shot_id":"h"`
+	static := []struct {
+		table, col, where string
+		part              string // partition key columns
+		row               string // clustering column of a row of the partition
+		rowKey            []any
+		partKey           []any
+	}{
+		{"episode", "episode_url", "project_id='itest' AND episode_id='e'",
+			`"project_id":"itest","episode_id":"e"`, `"sequence_id":"s"`,
+			[]any{"itest", "e", "s"}, []any{"itest", "e"}},
+		{"sequence", "sequence_url", "project_id='itest' AND sequence_id='s'",
+			`"project_id":"itest","sequence_id":"s"`, `"scene_id":"c"`,
+			[]any{"itest", "s", "c"}, []any{"itest", "s"}},
+		{"scene", "scene_url", "project_id='itest' AND episode_id='e' AND sequence_id='s' AND scene_id='c'",
+			`"project_id":"itest","episode_id":"e","sequence_id":"s","scene_id":"c"`, `"shot_id":"h"`,
+			[]any{"itest", "e", "s", "c", "h"}, []any{"itest", "e", "s", "c"}},
+	}
+	for _, c := range static {
+		t.Run(c.table, func(t *testing.T) {
+			tb := mustTable(t, st, c.table)
+			t.Cleanup(func() { st.session.Query(`DELETE FROM mlw.` + c.table + ` WHERE ` + c.where).Exec() })
+			url := "https://am.example.org/" + c.table + "/1"
+			if _, err := st.Create(ctx, tb, decode(t, `{`+c.part+`,"`+c.col+`":"`+url+`"}`)); err != nil {
+				t.Fatalf("static-only create: %v", err)
+			}
+			if _, err := st.Create(ctx, tb, decode(t, `{`+c.part+`,`+c.row+`,"description":"d"}`)); err != nil {
+				t.Fatal(err)
+			}
+			row, err := st.Get(ctx, tb, c.rowKey)
+			if err != nil || row[c.col] != url {
+				t.Fatalf("%s on row: %v %v", c.col, row, err)
+			}
+			url2 := url + "?v=2"
+			if _, err := st.Update(ctx, tb, c.partKey, decode(t, `{"`+c.col+`":"`+url2+`"}`), false); err != nil {
+				t.Fatalf("partition update: %v", err)
+			}
+			if row, err = st.Get(ctx, tb, c.rowKey); err != nil || row[c.col] != url2 || row["description"] != "d" {
+				t.Fatalf("after update: %v %v", row, err)
+			}
+		})
+	}
+
+	t.Run("shot", func(t *testing.T) {
+		tb := mustTable(t, st, "shot")
+		key := []any{"itest", "e", "s", "c", "h"}
+		t.Cleanup(func() { st.Delete(ctx, tb, key) })
+		if _, err := st.Create(ctx, tb, decode(t, `{`+base+`,"shot_url":"https://am.example.org/shot/1"}`)); err != nil {
+			t.Fatal(err)
+		}
+		if row, err := st.Get(ctx, tb, key); err != nil || row["shot_url"] != "https://am.example.org/shot/1" {
+			t.Fatalf("shot_url: %v %v", row, err)
+		}
+		if _, err := st.Update(ctx, tb, key, decode(t, `{"shot_url":"https://am.example.org/shot/2"}`), false); err != nil {
+			t.Fatal(err)
+		}
+		if row, err := st.Get(ctx, tb, key); err != nil || row["shot_url"] != "https://am.example.org/shot/2" {
+			t.Fatalf("shot_url after update: %v %v", row, err)
+		}
+	})
+
+	t.Run("frame", func(t *testing.T) {
+		tb := mustTable(t, st, "frame")
+		// each layer row of a frame holds its own frame_url
+		k1 := []any{"itest", "e", "s", "c", "h", int32(1), "L1"}
+		k2 := []any{"itest", "e", "s", "c", "h", int32(1), "L2"}
+		t.Cleanup(func() { st.Delete(ctx, tb, k1); st.Delete(ctx, tb, k2) })
+		for layer, url := range map[string]string{"L1": "https://am.example.org/frame/1", "L2": "https://am.example.org/frame/1b"} {
+			if _, err := st.Create(ctx, tb, decode(t, `{`+base+`,"frame_number":1,"layer_id":"`+layer+`","frame_url":"`+url+`"}`)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if row, err := st.Get(ctx, tb, k1); err != nil || row["frame_url"] != "https://am.example.org/frame/1" {
+			t.Fatalf("L1: %v %v", row, err)
+		}
+		if row, err := st.Get(ctx, tb, k2); err != nil || row["frame_url"] != "https://am.example.org/frame/1b" {
+			t.Fatalf("L2: %v %v", row, err)
+		}
+	})
+}
+
 func TestLookupTables(t *testing.T) {
 	st := testStore(t)
 	ctx := context.Background()
