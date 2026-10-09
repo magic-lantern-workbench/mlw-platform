@@ -1,0 +1,9 @@
+{
+  "name": "mlw-login-test",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "End-to-end test of the Keycloak login, run by scripts/test-login.sh",
+  "scripts": { "test": "node login.test.mjs" },
+  "dependencies": { "playwright-core": "^1.50.0" }
+}

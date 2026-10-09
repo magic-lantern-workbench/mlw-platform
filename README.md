@@ -352,6 +352,11 @@ cd web && npm run dev                       # UI with hot reload, proxying /api 
 
 The integration tests write rows under the project id `itest` and remove them again.
 
+`scripts/test-login.sh` tests the Keycloak login end to end: it starts the local stack in a separate compose
+project, signs in through a headless Chrome/Chromium (playwright-core), checks the API with valid, tampered and
+ID tokens, and removes the stack again (`--keep` leaves it running). It needs Docker, Node.js and a browser, and
+the ports 8090 and 8180 free.
+
 ## Remote server deployment
 
 The same compose setup runs on a remote server using the production override
