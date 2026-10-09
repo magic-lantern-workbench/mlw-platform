@@ -188,7 +188,7 @@ H1('5. Controlling Who May Use the Application');
 para('By default every user of the mlw realm may use the application. To allow only users who have the role mlw-user, set OIDC_REQUIRED_ROLE in the .env file and restart the application:');
 code('# .env\nOIDC_REQUIRED_ROLE=mlw-user', 'Require the role');
 code('docker compose up -d app', 'Restart the application');
-para('A user without the role can still sign in at Keycloak, because the account is valid, but the application refuses every request. The person lands on the login page again, with the message “Your session has ended. Sign in again.” Signing in again does not help. The fix is to give the user the role (section 4.4).');
+para('A user without the role can still sign in at Keycloak, because the account is valid, but the application refuses every request. The person lands on the login page again, with the message “Your account does not provide access. Contact your system administrator for details.” Signing in again does not help. The fix is to give the user the role (section 4.4).');
 shot('app-no-role.png', 'A user without the required role is sent back to the login page');
 para('Leave OIDC_REQUIRED_ROLE empty to allow everyone in the realm.');
 
@@ -234,8 +234,8 @@ grid([2700, 3300, 3360], ['What you see', 'Likely cause', 'What to do'], [
   ['The login page appears but the Keycloak page says the address cannot be reached, or the realm is not found', 'Keycloak is still starting, or the realm was not created.', 'Wait until http://localhost:8180/realms/mlw answers. If it never does, check docker compose logs keycloak.'],
   ['Keycloak says “Invalid parameter: redirect_uri”', 'The application was opened at an address Keycloak does not know. Local development accepts http(s)://localhost:8090 only.', 'Open http://localhost:8090. To use another address, add it under Clients, mlw-app, Valid redirect URIs and Web origins, and Valid post logout redirect URIs.'],
   ['“Invalid username or password”', 'Wrong password, or the account is disabled.', 'Check the user in the admin console; reset the password (section 4.3) or switch Enabled on.'],
-  ['“Your session has ended. Sign in again.” right after signing in', 'The user does not have the role required by OIDC_REQUIRED_ROLE, or the application cannot reach Keycloak to check the login.', 'Give the user mlw-user (section 4.4). If other users work, that is the cause; if nobody can sign in, check docker compose logs app.'],
-  ['“Your session has ended” after working for a while', 'The login could not be renewed, for example after 30 idle minutes.', 'Sign in again.'],
+  ['“Your account does not provide access. Contact your system administrator for details.” right after signing in', 'The user does not have the role required by OIDC_REQUIRED_ROLE, or the application cannot reach Keycloak to check the login.', 'Give the user mlw-user (section 4.4). If other users work, that is the cause; if nobody can sign in, check docker compose logs app.'],
+  ['“Your session has ended. Sign in again.” after working for a while', 'The login could not be renewed, for example after 30 idle minutes.', 'Sign in again.'],
   ['curl returns 401 with a token', 'The token expired (5 minutes), or it was issued by another realm or client.', 'Request a new token from the mlw realm with client_id=mlw-app.'],
   ['The realm file was changed but nothing happened', 'The realm is only created when it does not exist.', 'Use docker compose down -v to delete the data and start again, or change the setting in the admin console.'],
   ['The admin console says you are using a temporary admin user', 'The first administrator is temporary.', 'See section 7.'],

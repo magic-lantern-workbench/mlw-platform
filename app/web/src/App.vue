@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { api, ApiError, getToken, setToken } from './api.js'
 import RowForm from './RowForm.vue'
 import LoginView from './LoginView.vue'
-import { auth, initAuth, logout, userName } from './auth.js'
+import { auth, initAuth, loginAccepted, logout, markLoginAccepted, userName } from './auth.js'
 
 const SwaggerView = defineAsyncComponent(() => import('./SwaggerView.vue'))
 
@@ -31,9 +31,12 @@ const isKey = (c) => keyCols.value.includes(c.name)
 
 function fail(e) {
   if (e instanceof ApiError && e.status === 401 && auth.enabled) {
-    // the access token was refused or has expired: sign in again
+    // The API refused the access token. If it never accepted this login, the account has no access
+    // (for example it lacks the required role); otherwise the session has ended.
     auth.user = null
-    auth.error = 'Your session has ended. Sign in again.'
+    auth.error = loginAccepted()
+      ? 'Your session has ended. Sign in again.'
+      : 'Your account does not provide access. Contact your system administrator for details.'
   } else if (e instanceof ApiError && e.status === 401) {
     needToken.value = true
     error.value = 'This server needs an API token.'
@@ -47,6 +50,7 @@ async function loadTables() {
     const r = await api.tables()
     keyspace.value = r.keyspace
     tables.value = r.tables
+    markLoginAccepted()
     needToken.value = false
     error.value = ''
     const wanted = decodeURIComponent(location.hash.slice(1))

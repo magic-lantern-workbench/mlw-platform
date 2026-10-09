@@ -13,6 +13,20 @@ export const auth = reactive({
 
 let manager = null
 
+// Whether the API has accepted this sign-in at least once. It tells "the account has no access"
+// (refused from the start) from "the session has ended" (refused after it worked). It is kept in
+// the tab's session storage so that it survives a reload, and is reset by every new sign-in.
+const ACCEPTED = 'mlw-login-accepted'
+export function loginAccepted() {
+  try { return sessionStorage.getItem(ACCEPTED) === '1' } catch { return false }
+}
+export function markLoginAccepted() {
+  try { sessionStorage.setItem(ACCEPTED, '1') } catch { /* ignore */ }
+}
+function resetLoginAccepted() {
+  try { sessionStorage.removeItem(ACCEPTED) } catch { /* ignore */ }
+}
+
 export const accessToken = () => (auth.user && !auth.user.expired ? auth.user.access_token : '')
 export const userName = () => auth.user?.profile?.preferred_username || auth.user?.profile?.name || auth.user?.profile?.sub || ''
 
@@ -50,6 +64,7 @@ async function start(cfg) {
     // back from the provider's login page
     let hash = ''
     try {
+      resetLoginAccepted()
       const u = await manager.signinRedirectCallback()
       auth.user = u
       hash = u.state?.hash || ''
@@ -70,6 +85,7 @@ export function login() {
 export async function logout() {
   const u = auth.user
   auth.user = null
+  resetLoginAccepted()
   await manager.removeUser()
   // ends the session at the provider too, then returns to this page
   await manager.signoutRedirect({ id_token_hint: u?.id_token })
