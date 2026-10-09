@@ -1,0 +1,318 @@
+MAGIC LANTERN WORKBENCH PLATFORM - LICENSES
+Version 1.0.0 - 2026-10-09
+
+This document lists the licenses that apply to the Magic Lantern Workbench
+Platform (MLW) and to the third-party software it contains, is built with, or
+runs on. It was compiled from the license files and package metadata of the
+dependencies at the versions used in release 1.0.0 (go.mod, package-lock.json
+and the Docker Compose files). It is an inventory, not legal advice. Check the
+license texts of the exact versions you redistribute.
+
+CONTENTS
+
+  1. Summary
+  2. This project
+  3. Go modules (compiled into the application)
+  4. Web user interface (bundled into the application)
+  5. Container images
+  6. Build-time tools
+  7. Documentation tools
+  8. Test tools
+  9. Obligations when you redistribute
+ 10. License texts and identifiers
+
+
+--------------------------------------------------------------------------
+1. SUMMARY
+--------------------------------------------------------------------------
+
+- The MLW source code is released under the MIT License (Wizzer Works).
+- Everything compiled or bundled into the application uses a permissive
+  license: MIT, BSD-2-Clause, BSD-3-Clause, ISC or Apache-2.0. Two components
+  are offered under more than one license (yaml.v3: MIT and Apache-2.0 for
+  different files; DOMPurify, inside Swagger UI: Apache-2.0 or MPL-2.0).
+- No component that is compiled or bundled into the application uses a strong
+  copyleft license (GPL, AGPL, or LGPL as a linked library).
+- The services started by Docker Compose are separate programs, pulled as
+  container images: Apache Cassandra (Apache-2.0), Keycloak (Apache-2.0) and
+  PostgreSQL (PostgreSQL License). They are not part of the MLW source and are
+  used as separate processes.
+- The tools used only to build the documents (LibreOffice, Graphviz) are not
+  distributed with the project and their licenses do not apply to it.
+
+
+--------------------------------------------------------------------------
+2. THIS PROJECT
+--------------------------------------------------------------------------
+
+Magic Lantern Workbench Platform
+License:   MIT License
+Copyright: (c) 2026 Wizzer Works
+File:      LICENSE in the repository root
+
+This covers the CQL schema (cql/), the application (app/), the Docker and
+Compose files, the scripts (scripts/), the Keycloak realm files
+(docker/keycloak/), the documentation generators (doc/generator/) and the
+generated documents (doc/). The full text of the MIT License is in LICENSE
+and is repeated in section 10.
+
+
+--------------------------------------------------------------------------
+3. GO MODULES (compiled into the application)
+--------------------------------------------------------------------------
+
+These modules are listed in app/go.mod. Licenses were read from each
+module's LICENSE and NOTICE files.
+
+Direct dependencies
+
+  github.com/gocql/gocql v1.7.0                 Apache-2.0
+      Apache Cassandra GoCQL driver. Has a NOTICE file:
+      "Copyright 2024 The Apache Software Foundation".
+  github.com/coreos/go-oidc/v3 v3.21.0          Apache-2.0
+      OpenID Connect token verification. Has a NOTICE file:
+      "Copyright 2014 CoreOS, Inc".
+  gopkg.in/yaml.v3 v3.0.1                       MIT and Apache-2.0
+      The LICENSE file says the project is covered by two licenses. The files
+      ported from libyaml (C) are MIT; the rest is Apache-2.0. Has a NOTICE
+      file: "Copyright 2011-2016 Canonical Ltd."
+
+Indirect dependencies
+
+  github.com/go-jose/go-jose/v4 v4.1.4          Apache-2.0
+  golang.org/x/oauth2 v0.36.0                   BSD-3-Clause
+      Copyright The Go Authors.
+  github.com/golang/snappy v0.0.3               BSD-3-Clause
+      Copyright (c) 2011 The Snappy-Go Authors.
+  github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed   MIT
+      Copyright (c) 2015 Bitly.
+  gopkg.in/inf.v0 v0.9.1                        BSD-3-Clause
+      Copyright (c) 2012 Peter Suranyi; portions Copyright (c) 2009 The Go
+      Authors.
+
+Go standard library and toolchain
+
+  The application is built with Go 1.25 (golang:1.25 image) and statically
+  linked with the Go standard library: BSD-3-Clause, Copyright The Go
+  Authors.
+
+
+--------------------------------------------------------------------------
+4. WEB USER INTERFACE (bundled into the application)
+--------------------------------------------------------------------------
+
+The web UI (app/web) is built with Vite and embedded in the application
+binary. The packages that end up in the delivered JavaScript are:
+
+  vue 3.5.43 (with @vue/runtime-dom, @vue/runtime-core, @vue/reactivity and
+  @vue/shared)                                  MIT
+  oidc-client-ts 3.5.0                          Apache-2.0
+  jwt-decode 4.0.0                              MIT
+  swagger-ui-dist 5.33.1                        Apache-2.0
+      Copyright 2020-2021 SmartBear Software Inc. (NOTICE file).
+
+swagger-ui-dist is a prebuilt bundle that contains its own dependencies.
+Its file swagger-ui-bundle.js.LICENSE.txt lists the licenses of the code it
+contains. The notices there name, among others:
+
+  React and react-dom (MIT, Facebook), Immutable.js (MIT, Lee Byron and
+  others), classnames (MIT, Jed Watson), deep-extend (MIT), JSON-Patch (MIT,
+  Joachim Wester), repeat-string (MIT), buffer and safe-buffer (MIT,
+  Feross Aboukhadijeh), ieee754 (BSD-3-Clause, Feross Aboukhadijeh) and
+  DOMPurify 3.4.13 (Cure53 and contributors, released under the Apache
+  License 2.0 and the Mozilla Public License 2.0; you may use it under
+  either).
+
+The Vite build does not copy these notice files into the application, so
+this document is where the attribution for them is kept. If you redistribute
+the web UI separately, ship the license files of the packages above (found
+in node_modules/<package>/ and in swagger-ui-bundle.js.LICENSE.txt) with it.
+
+
+--------------------------------------------------------------------------
+5. CONTAINER IMAGES
+--------------------------------------------------------------------------
+
+The Compose files and the Dockerfile pull these images from public
+registries. The images are not part of this repository. Each image contains
+software under its own licenses, which you can inspect in the image (for
+example under /usr/share/doc, where the image has it).
+
+Services (docker-compose*.yml)
+
+  cassandra:5.0                       Apache Cassandra: Apache-2.0
+  quay.io/keycloak/keycloak:26.4.0    Keycloak: Apache-2.0
+  postgres:16                         PostgreSQL: PostgreSQL License (a
+                                      permissive license similar to
+                                      BSD/MIT). Used by Keycloak in the
+                                      production override.
+
+Application image (app/Dockerfile)
+
+  node:22-alpine         build stage only (web UI): Node.js is MIT; Alpine
+                         Linux packages have various licenses.
+  golang:1.25-alpine     build stage only (Go binary): Go is BSD-3-Clause.
+  gcr.io/distroless/static-debian12:nonroot
+                         runtime image: Distroless is Apache-2.0. The image
+                         holds only the application binary plus a minimal set
+                         of Debian files (CA certificates, timezone data,
+                         base files). The Mozilla CA certificate bundle is
+                         under the Mozilla Public License 2.0, and the time
+                         zone database is in the public domain.
+
+The final application image therefore contains the MLW application (MIT)
+with the Go and web components of sections 3 and 4, and the distroless base.
+
+
+--------------------------------------------------------------------------
+6. BUILD-TIME TOOLS
+--------------------------------------------------------------------------
+
+These npm packages are used to build the web UI (app/web, devDependencies
+and their dependencies) and are not part of the delivered application:
+
+  vite 6.4.3, @vitejs/plugin-vue 5.2.4, rollup 4.64.0, esbuild 0.25.12,
+  postcss 8.5.29, @vue/compiler-* 3.5.43, @babel/parser, @babel/types and
+  others                                        MIT
+  picocolors 1.1.1                              ISC
+  source-map-js 1.2.2                           BSD-3-Clause
+  entities 7.0.1                                BSD-2-Clause
+  @scarf/scarf 1.4.0 (dependency of swagger-ui-dist)   Apache-2.0
+
+The lock file lists 88 packages for the web UI: 82 MIT, 3 Apache-2.0, 1 ISC,
+1 BSD-2-Clause and 1 BSD-3-Clause (counted from package metadata). Platform
+specific optional packages of rollup and esbuild (also MIT) are included.
+
+
+--------------------------------------------------------------------------
+7. DOCUMENTATION TOOLS
+--------------------------------------------------------------------------
+
+doc/generator builds the Word documents, the OpenAPI file and the diagrams.
+Its npm packages (package-lock.json, 23 packages) are:
+
+  docx 9.8.1                                    MIT
+  yaml 2.9.1                                    ISC
+  jszip 3.10.2                                  MIT OR GPL-3.0-or-later
+      A dual license. The project uses it under the MIT option.
+  pako 1.0.11                                   MIT AND Zlib
+  sax 1.6.1                                     BlueOak-1.0.0
+  inherits 2.0.4, minimalistic-assert 1.0.1     ISC
+  all others (xml, xml-js, hash.js, readable-stream, safe-buffer, nanoid,
+  lie, immediate, setimmediate, isarray, core-util-is, process-nextick-args,
+  string_decoder, util-deprecate, @types/node, undici-types)   MIT
+
+Programs the generator calls, which you install yourself and which are not
+distributed with the project:
+
+  Graphviz (dot)         Eclipse Public License 1.0
+  LibreOffice            Mozilla Public License 2.0 / LGPL-3.0-or-later
+  Python 3               Python Software Foundation License
+
+The generated Word documents and the OpenAPI file are original work of the
+project (MIT). The Keycloak user guide contains screenshots of the Keycloak
+administration console and login page, which show the user interface of
+Apache-licensed software. The documents name the Calibri font but do not
+embed it.
+
+
+--------------------------------------------------------------------------
+8. TEST TOOLS
+--------------------------------------------------------------------------
+
+  playwright-core 1.64.0 (scripts/test-login)   Apache-2.0
+      Used by the end-to-end login test. It drives a Chrome or Chromium that
+      you install yourself; no browser is distributed with the project.
+
+
+--------------------------------------------------------------------------
+9. OBLIGATIONS WHEN YOU REDISTRIBUTE
+--------------------------------------------------------------------------
+
+Source or binaries of MLW (MIT):
+  - Keep the copyright notice and the MIT permission notice (LICENSE) with
+    all copies or substantial portions of the software.
+
+Apache-2.0 components (gocql, go-oidc, go-jose, yaml.v3 (Apache part),
+oidc-client-ts, swagger-ui-dist, playwright-core):
+  - Include a copy of the Apache License 2.0.
+  - Keep copyright, patent and attribution notices, and include the contents
+    of the NOTICE files listed above in a NOTICE text or documentation that
+    comes with the distribution.
+  - State significant changes if you modify these files.
+
+BSD-3-Clause and BSD-2-Clause components (snappy, oauth2, inf.v0,
+source-map-js, entities, Go standard library, ieee754):
+  - Keep the copyright notice, the license conditions and the disclaimer in
+    the documentation or other materials that come with a binary
+    distribution.
+  - Do not use the authors' names to endorse derived products without
+    permission.
+
+MIT and ISC components (Vue, jwt-decode, go-hostpool, React, Immutable.js and
+the other MIT and ISC packages):
+  - Keep the copyright notice and the permission notice with copies.
+
+DOMPurify (inside Swagger UI) is offered under Apache-2.0 or MPL-2.0. Use it
+under Apache-2.0 to follow the Apache obligations above. If you choose MPL-2.0
+instead, changes to DOMPurify's own files must be made available under the
+MPL.
+
+Container images: you receive and redistribute the images under the licenses
+of the software inside them. If you publish an image built from this project,
+include the license information of the base image and its packages.
+
+Copyleft: nothing compiled or bundled into the application is under the GPL,
+AGPL or LGPL. The GPL option of jszip is not used. LibreOffice and Graphviz
+are run as separate programs to produce documents; their licenses do not
+apply to the output.
+
+When you add a dependency, add it to this document, and check that its license
+is compatible with the MIT License of the project.
+
+
+--------------------------------------------------------------------------
+10. LICENSE TEXTS AND IDENTIFIERS
+--------------------------------------------------------------------------
+
+License names above are SPDX identifiers. Their full texts are at
+https://spdx.org/licenses/ :
+
+  MIT                 https://spdx.org/licenses/MIT.html
+  Apache-2.0          https://spdx.org/licenses/Apache-2.0.html
+  BSD-2-Clause        https://spdx.org/licenses/BSD-2-Clause.html
+  BSD-3-Clause        https://spdx.org/licenses/BSD-3-Clause.html
+  ISC                 https://spdx.org/licenses/ISC.html
+  MPL-2.0             https://spdx.org/licenses/MPL-2.0.html
+  Zlib                https://spdx.org/licenses/Zlib.html
+  BlueOak-1.0.0       https://spdx.org/licenses/BlueOak-1.0.0.html
+  EPL-1.0             https://spdx.org/licenses/EPL-1.0.html
+  PostgreSQL          https://spdx.org/licenses/PostgreSQL.html
+
+The license and notice files of the Go modules are in the module sources
+(go mod download; each module directory has its LICENSE and NOTICE files).
+The npm packages carry their licenses in node_modules/<package>/.
+
+Text of the MIT License of this project (also in LICENSE):
+
+  MIT License
+
+  Copyright (c) 2026 Wizzer Works
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the "Software"),
+  to deal in the Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  and/or sell copies of the Software, and to permit persons to whom the
+  Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+  DEALINGS IN THE SOFTWARE.
